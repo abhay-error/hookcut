@@ -1,0 +1,21 @@
+name: Bug report
+description: Something broke or looks wrong
+labels: [bug]
+body:
+  - type: textarea
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what you got instead.
+    validations: { required: true }
+  - type: textarea
+    attributes:
+      label: Output of `hookcut doctor`
+      render: text
+    validations: { required: true }
+  - type: input
+    attributes: { label: Model used, placeholder: "qwen3:14b" }
+  - type: textarea
+    attributes:
+      label: Error message or logs
+      description: Run with `hookcut clip ... -v` for more detail.
+      render: text

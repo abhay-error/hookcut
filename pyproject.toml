@@ -5,12 +5,12 @@ build-backend = "hatchling.build"
 [project]
 name = "hookcut"
 version = "0.1.0"
-description = "Turn long videos into short vertical clips with local, open models. No cloud, no API keys."
+description = "Turn long videos into viral Shorts, Reels & TikToks with local open models. Free, private, no cloud."
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10,<3.13"
 authors = [{ name = "hookcut contributors" }]
-keywords = ["video", "shorts", "reels", "tiktok", "whisper", "ollama", "clips"]
+keywords = ["video", "shorts", "reels", "tiktok", "clips", "ai", "whisper", "ollama", "llm", "captions", "video-editing", "local-first"]
 classifiers = [
   "License :: OSI Approved :: MIT License",
   "Programming Language :: Python :: 3",

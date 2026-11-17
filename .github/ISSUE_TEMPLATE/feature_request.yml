@@ -1,0 +1,11 @@
+name: Feature request
+description: An idea to make hookcut better
+labels: [enhancement]
+body:
+  - type: textarea
+    attributes:
+      label: What would you like hookcut to do?
+    validations: { required: true }
+  - type: textarea
+    attributes:
+      label: Why does it matter for your videos?
