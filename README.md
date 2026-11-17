@@ -35,7 +35,7 @@ You need **Python 3.10–3.12**, **ffmpeg with libass** (for captions), and **Ol
 
 | OS | Command |
 |---|---|
-| macOS | `brew install ffmpeg-full` then `export HOOKCUT_FFMPEG="$(brew --prefix ffmpeg-full)/bin"` (Homebrew's plain `ffmpeg` has no libass) |
+| macOS | `brew install ffmpeg-full` (Homebrew's plain `ffmpeg` has no libass; hookcut finds `ffmpeg-full` automatically) |
 | Windows | `winget install Gyan.FFmpeg` (the "full" build) |
 | Ubuntu/Debian | `sudo apt install ffmpeg` |
 

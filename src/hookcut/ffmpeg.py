@@ -12,6 +12,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 
@@ -33,6 +34,12 @@ def _resolve(name: str) -> str:
             sibling = p.with_name(name + p.suffix)
             if sibling.exists():
                 return str(sibling)
+    if sys.platform == "darwin":
+        # Homebrew's plain ffmpeg has no libass; prefer ffmpeg-full when present.
+        for prefix in ("/opt/homebrew/opt/ffmpeg-full/bin", "/usr/local/opt/ffmpeg-full/bin"):
+            candidate = Path(prefix) / name
+            if candidate.exists():
+                return str(candidate)
     found = shutil.which(name)
     if not found:
         raise FFmpegError(
