@@ -121,3 +121,58 @@ def list_models(settings: LLMSettings) -> list[str]:
             return sorted(m["id"] for m in data.get("data", []))
     except Exception:
         return []
+
+
+# -- model management (Ollama only) --------------------------------------------
+
+MODEL_NAME = re.compile(r"^[a-z0-9][a-z0-9._\-/]*(:[a-z0-9][a-z0-9._\-]*)?$")
+
+
+def installed_models(settings: LLMSettings) -> list[dict]:
+    """[{name, size_gb}] for Ollama; names only for other servers."""
+    if settings.backend != "ollama":
+        return [{"name": m, "size_gb": None} for m in list_models(settings)]
+    try:
+        with httpx.Client(timeout=5) as client:
+            data = client.get(settings.base_url.rstrip("/") + "/api/tags").json()
+    except Exception:
+        return []
+    return sorted(
+        ({"name": m["name"], "size_gb": round(m.get("size", 0) / 1e9, 1)}
+         for m in data.get("models", [])),
+        key=lambda m: m["name"],
+    )
+
+
+def pull_model(settings: LLMSettings, name: str, on_progress) -> None:
+    """Download a model through Ollama, reporting (status, fraction) as it goes."""
+    if settings.backend != "ollama":
+        raise LLMError("Downloading models is only supported with Ollama.")
+    if not MODEL_NAME.match(name):
+        raise LLMError(f"'{name}' is not a valid model name.")
+    url = settings.base_url.rstrip("/") + "/api/pull"
+    try:
+        with httpx.Client(timeout=httpx.Timeout(60, connect=10, read=300)) as client, \
+                client.stream("POST", url, json={"model": name, "stream": True}) as response:
+            if response.status_code >= 400:
+                raise LLMError(f"Ollama refused the download: {response.read().decode()[:200]}")
+            for line in response.iter_lines():
+                if not line:
+                    continue
+                event = json.loads(line)
+                if "error" in event:
+                    raise LLMError(event["error"])
+                total, done = event.get("total"), event.get("completed")
+                on_progress(event.get("status", ""), (done / total) if total and done else None)
+    except httpx.ConnectError as exc:
+        raise LLMError("Ollama is not running. Start it with `ollama serve`.") from exc
+
+
+def delete_model(settings: LLMSettings, name: str) -> None:
+    if settings.backend != "ollama":
+        raise LLMError("Removing models is only supported with Ollama.")
+    with httpx.Client(timeout=30) as client:
+        response = client.request("DELETE", settings.base_url.rstrip("/") + "/api/delete",
+                                  json={"model": name})
+    if response.status_code >= 400:
+        raise LLMError(f"Could not remove {name}: {response.text[:200]}")

@@ -52,10 +52,19 @@ class RenderSettings(BaseModel):
     crf: int = 20
     loudness_lufs: float = -14.0
     captions: bool = True
-    caption_style: Literal["highlight", "plain"] = "highlight"
+    #: highlight = spoken word lights up; box = text on a dark pill; plain = static.
+    caption_style: Literal["highlight", "box", "plain"] = "highlight"
+    #: Font id from hookcut.fonts.FONTS.
+    caption_font: str = "poppins"
+    #: Text height in pixels on a 1920-pixel-tall frame (scaled for other sizes).
+    caption_size: int = Field(default=84, ge=32, le=200)
+    #: Vertical centre of the caption, as a percentage from the top of the frame.
+    caption_y: int = Field(default=72, ge=5, le=95)
+    caption_color: str = Field(default="#FFFFFF", pattern=r"^#[0-9A-Fa-f]{6}$")
+    highlight_color: str = Field(default="#FFE500", pattern=r"^#[0-9A-Fa-f]{6}$")
+    uppercase: bool = True
     #: Words shown per caption line.
-    words_per_caption: int = 3
-    font: str = "Arial"
+    words_per_caption: int = Field(default=3, ge=1, le=8)
     #: Track faces. Off = always centre-crop.
     face_tracking: bool = True
 

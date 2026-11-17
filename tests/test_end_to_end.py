@@ -66,6 +66,43 @@ def test_pipeline_renders_a_vertical_clip(sample_video, stub_models) -> None:
     assert any(p.name.startswith("transcript-") for p in src.iterdir())
 
 
+def _frame(path, t: float) -> bytes:
+    import subprocess
+
+    return subprocess.run(
+        [ffmpeg.ffmpeg(), "-v", "error", "-ss", str(t), "-i", str(path), "-frames:v", "1",
+         "-vf", "scale=108:192", "-f", "rawvideo", "-pix_fmt", "gray", "-"],
+        capture_output=True, check=True).stdout
+
+
+@pytest.mark.skipif(not ffmpeg.has_filter("ass") if shutil.which("ffmpeg") or
+                    __import__("os").environ.get("HOOKCUT_FFMPEG") else True,
+                    reason="ffmpeg without libass")
+def test_font_and_position_change_the_rendered_captions(sample_video, stub_models) -> None:
+    from hookcut import fonts
+
+    def render(font: str, y: int):
+        settings = Settings()
+        settings.clips.min_seconds = 5
+        settings.render.encoder = "libx264"
+        settings.render.face_tracking = False
+        settings.render.caption_font, settings.render.caption_y = font, y
+        settings.render.caption_size = 140
+        try:
+            fonts.ensure(font)
+        except fonts.FontError:
+            pytest.skip("font download unavailable")
+        job = pipeline.Runner(pipeline.new_job(str(sample_video), settings)).run()
+        assert job.status == "done", job.error
+        clips_dir = pipeline.job_dir(job.id) / "clips"
+        assert [p.name for p in clips_dir.iterdir()] == ["01.mp4"], "no scratch files left"
+        return _frame(clips_dir / "01.mp4", 1.0)
+
+    base = render("poppins", 72)
+    assert render("bangers", 72) != base, "a different font must render differently"
+    assert render("poppins", 20) != base, "a different position must render differently"
+
+
 def test_face_tracking_runs_on_footage_without_faces(sample_video, stub_models) -> None:
     pytest.importorskip("mediapipe")
     from hookcut.stages import reframe
@@ -102,3 +139,34 @@ def test_web_api_runs_a_job(sample_video, stub_models) -> None:
         assert "big-moment-01.mp4" in video.headers["content-disposition"]
         assert client.get(f"/api/jobs/{job['id']}/clips/9").status_code == 404
         assert client.delete(f"/api/jobs/{job['id']}").status_code == 204
+
+
+def test_web_api_models_fonts_and_uploads(sample_video, monkeypatch) -> None:
+    from hookcut.web.app import create_app
+
+    monkeypatch.setattr(llm, "installed_models", lambda s: [{"name": "qwen3:14b", "size_gb": 9.3},
+                                                            {"name": "my-model:1b", "size_gb": 1}])
+    monkeypatch.setattr(llm, "list_models", lambda s: ["qwen3:14b", "my-model:1b"])
+    with TestClient(create_app()) as client:
+        data = client.get("/api/models").json()
+        assert data["server_ok"] and data["ram_gb"] > 0
+        row = next(m for m in data["catalog"] if m["tag"] == "qwen3:14b")
+        assert row["installed"] and row["fit"] in ("good", "tight", "too-big")
+        assert client.post("/api/models/pull", json={"name": "rm -rf /"}).status_code == 400
+
+        fonts_list = client.get("/api/fonts").json()
+        assert any(f["id"] == "anton" for f in fonts_list)
+        assert client.get("/api/fonts/nope.ttf").status_code == 404
+
+        bad = client.put("/api/settings", json={"render": {"caption_font": "nope"}})
+        assert bad.status_code == 400
+        ok = client.put("/api/settings", json={"render": {"caption_size": 120, "caption_y": 30}})
+        assert ok.json()["settings"]["render"]["caption_size"] == 120
+
+        with open(sample_video, "rb") as f:
+            up = client.post("/api/upload", files={"file": ("my talk.mp4", f, "video/mp4")})
+        assert up.status_code == 201
+        from pathlib import Path
+        assert Path(up.json()["path"]).stat().st_size == sample_video.stat().st_size
+        txt = client.post("/api/upload", files={"file": ("notes.txt", b"hi", "text/plain")})
+        assert txt.status_code == 400

@@ -22,7 +22,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from . import ffmpeg
+from . import ffmpeg, fonts
 from .config import Settings, home
 from .models import ClipResult, Highlight, Transcript
 from .stages import captions, highlights, ingest, reframe, render, transcribe
@@ -221,16 +221,16 @@ class Runner:
                     shots = reframe.centre_plan(pick.duration)
             else:
                 shots = reframe.centre_plan(pick.duration)
-            ass = None
+            ass = font_file = None
             if s.render.captions:
+                font = fonts.get(s.render.caption_font)
+                font_file = fonts.ensure(font.id)
                 ass = captions.build_ass(
                     captions.clip_words(transcript.words, pick.start, pick.end),
-                    width=s.render.width, height=s.render.height,
-                    per_line=s.render.words_per_caption,
-                    style=s.render.caption_style, font=s.render.font,
+                    s.render, font.family, font.bold,
                 )
             render.render_clip(video, pick.start, pick.end, shots, src_w, src_h,
-                               out_file, s.render, ass)
+                               out_file, s.render, ass, font_file)
             results.append(ClipResult(index=n, highlight=pick,
                                       file=str(out_file.relative_to(out_dir)), shots=shots))
             self._update(force=True, clips=list(results))

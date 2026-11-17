@@ -21,8 +21,12 @@ long video ──► transcribe ──► find highlights ──► reframe 9:16
   timestamps, so it can't misplace a clip, and the prompt stays short.
 - **Speaker stays in frame.** Detects camera cuts and centres each shot on the main
   face, with a steady crop per shot (no jittery panning).
-- **Captions** with the spoken word highlighted, normalised audio (−14 LUFS),
-  1080×1920 H.264 ready to upload.
+- **Captions you control:** 13 open-licensed fonts (Poppins, Anton, Bebas Neue,
+  Bangers, Luckiest Guy…), any size, any position, highlight / box / plain styles,
+  custom colours, with a live preview. Normalised audio (−14 LUFS), 1080×1920 H.264.
+- **29 open models, one click.** Qwen, Gemma, Llama, Nemotron, GLM, DeepSeek,
+  Mistral, Phi, gpt-oss, Granite and OLMo. hookcut checks your memory and tells you
+  which ones run well, then downloads them for you.
 - **Fast on any machine:** Apple Silicon GPU (mlx-whisper), NVIDIA GPU (CUDA), or CPU.
 - **Web app + CLI.** Re-running a video with a different model reuses the download
   and transcript.
@@ -43,11 +47,13 @@ You need **Python 3.10–3.12**, **ffmpeg with libass** (for captions), and **Ol
 
 Install from [ollama.com](https://ollama.com), then pull a model that fits your memory:
 
-| RAM / VRAM | Model | Notes |
-|---|---|---|
-| 8 GB | `qwen3:4b` or `nemotron-3-nano:4b` | fast, picks are OK |
-| 16 GB | `qwen3:14b` | **recommended** default |
-| 24 GB+ | `qwen3:30b` / `nemotron-3-nano:30b` | best picks |
+| RAM / VRAM | Good choices |
+|---|---|
+| 8 GB | `qwen3:4b`, `nemotron-3-nano:4b`, `llama3.2:3b`, `phi4-mini:3.8b` |
+| 16 GB | **`qwen3:14b`** (default), `gemma4:12b`, `deepseek-r1:14b`, `phi4:14b`, `glm4:9b` |
+| 24 GB+ | `qwen3:30b`, `nemotron-3-nano:30b`, `gemma4:26b-a4b`, `gpt-oss:20b`, `mistral-small3.2:24b` |
+
+Or skip this step and download models from the **Models** tab in the app.
 
 ```bash
 ollama pull qwen3:14b
@@ -68,8 +74,12 @@ hookcut doctor        # checks ffmpeg, captions, model server
 hookcut serve
 ```
 
-Opens <http://localhost:8765>. Paste a link, press **Make clips**, watch progress,
-preview and download the clips.
+Opens <http://localhost:8765>:
+
+- **Create**: paste a link or drop a file, choose the model, number and length of
+  clips, and style the captions (font, size, position, colours) with a live preview.
+- **Library**: follow progress and watch, download or open your clips.
+- **Models**: see which open models fit your computer and download them.
 
 **Command line**
 
@@ -77,6 +87,9 @@ preview and download the clips.
 hookcut clip "https://www.youtube.com/watch?v=..." -n 5
 hookcut clip interview.mp4 --model qwen3:8b --think
 hookcut clip talk.mp4 --no-captions --centre
+hookcut clip talk.mp4 --font bangers --size 110 --position top --style box
+hookcut models     # which open models fit this computer
+hookcut fonts      # caption fonts
 ```
 
 Clips land in `~/.hookcut/jobs/<id>/clips/`.

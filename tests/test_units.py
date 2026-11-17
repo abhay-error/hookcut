@@ -90,18 +90,61 @@ def test_grouping_respects_line_length_and_sentences() -> None:
     assert texts == [["one", "two", "three"], ["four", "end."], ["next"]]
 
 
+def _ass(words, **render):
+    return captions.build_ass(words, RenderSettings(**render), "Poppins", bold=True)
+
+
+def _events(ass: str) -> list[str]:
+    return [line for line in ass.splitlines() if line.startswith("Dialogue:")]
+
+
+def test_ass_color_is_bgr_with_alpha() -> None:
+    assert captions.ass_color("#FFE500") == "&H0000E5FF"
+    assert captions.ass_color("#112233", 0x60) == "&H60332211"
+
+
 def test_highlight_style_makes_one_event_per_word() -> None:
-    words = make_words(["hi", "{there}", "friend"])
-    ass = captions.build_ass(words, per_line=3, style="highlight")
-    events = [line for line in ass.splitlines() if line.startswith("Dialogue:")]
+    events = _events(_ass(make_words(["hi", "{there}", "friend"]), words_per_caption=3))
     assert len(events) == 3
     assert "(THERE)" in events[0], "braces must be escaped so they aren't read as tags"
-    assert captions.HIGHLIGHT in events[1]
+    assert captions.ass_color("#FFE500") in events[1]
 
 
 def test_plain_style_makes_one_event_per_line() -> None:
-    ass = captions.build_ass(make_words(["a", "b", "c", "d"]), per_line=2, style="plain")
-    assert sum(line.startswith("Dialogue:") for line in ass.splitlines()) == 2
+    ass = _ass(make_words(["a", "b", "c", "d"]), words_per_caption=2, caption_style="plain")
+    assert len(_events(ass)) == 2
+
+
+def test_position_size_font_and_case_follow_settings() -> None:
+    ass = _ass(make_words(["hello", "world"]), caption_y=20, caption_size=100, uppercase=False,
+               highlight_color="#22E584")
+    style = next(line for line in ass.splitlines() if line.startswith("Style:"))
+    assert style.startswith("Style: Default,Poppins,100,")
+    assert ",-1,0,0,0," in style, "bold flag set for ExtraBold-only fonts"
+    first = _events(ass)[0]
+    assert "\\an5\\pos(540,384)" in first, "20% of 1920 = 384"
+    assert "hello" in first and "HELLO" not in first
+    assert "&H0084E522" in first
+
+
+def test_size_scales_with_output_height() -> None:
+    ass = captions.build_ass(make_words(["x"]),
+                             RenderSettings(height=960, width=540, caption_size=100), "Anton")
+    assert "Style: Default,Anton,50," in ass
+
+
+def test_box_style_uses_opaque_box() -> None:
+    style = next(line for line in _ass(make_words(["x"]), caption_style="box").splitlines()
+                 if line.startswith("Style:"))
+    fields = style.split(",")
+    assert fields[15] == "3", "BorderStyle 3 draws a box behind the text"
+
+
+def test_caption_settings_are_validated() -> None:
+    with pytest.raises(ValueError):
+        RenderSettings(caption_size=5)
+    with pytest.raises(ValueError):
+        RenderSettings(highlight_color="yellow")
 
 
 # -- reframe -----------------------------------------------------------------
@@ -143,5 +186,5 @@ def test_filter_has_one_segment_per_shot() -> None:
     assert graph.count("trim=") == 2
     assert "crop=608:1080:100:0" in graph
     assert "crop=608:1080:656:0" in graph  # centred
-    assert "concat=n=2" in graph and "ass=captions.ass" in graph
+    assert "concat=n=2" in graph and "ass=captions.ass:fontsdir=fonts" in graph
     assert "loudnorm=I=-14.0" in graph

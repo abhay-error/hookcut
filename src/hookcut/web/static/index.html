@@ -4,245 +4,915 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>hookcut</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%236b4cf6'/%3E%3Crect x='10' y='5' width='12' height='22' rx='3' stroke='white' stroke-width='2.2' fill='none'/%3E%3Cpath d='M14 12.5v7l5.5-3.5z' fill='white'/%3E%3C/svg%3E">
 <style>
-  :root {
-    --bg: #f6f5f2; --panel: #ffffff; --ink: #1b1b1f; --muted: #6b6b75; --line: #e4e2dc;
-    --accent: #e8542f; --accent-ink: #ffffff; --good: #1f8a4c; --bad: #c0392b; --bar: #ece9e2;
+/* ---------------------------------------------------------------- tokens */
+:root {
+  color-scheme: light;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", system-ui, Roboto, "Helvetica Neue", sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  --bg: #f3f3f6;
+  --bg-tint: radial-gradient(1200px 600px at 10% -10%, #ece7ff 0%, transparent 60%), radial-gradient(900px 500px at 110% 0%, #e3f1ff 0%, transparent 55%);
+  --surface: rgba(255,255,255,.78);
+  --surface-solid: #ffffff;
+  --surface-2: #f6f6f9;
+  --sunken: #ececf1;
+  --line: rgba(20,20,40,.09);
+  --line-strong: rgba(20,20,40,.16);
+  --ink: #17171c;
+  --ink-2: #4a4a55;
+  --muted: #7a7a86;
+  --accent: #6b4cf6;
+  --accent-2: #8f6bff;
+  --accent-ink: #ffffff;
+  --accent-soft: rgba(107,76,246,.12);
+  --good: #16a34a; --good-soft: rgba(22,163,74,.12);
+  --warn: #d97706; --warn-soft: rgba(217,119,6,.13);
+  --bad: #dc2626;  --bad-soft: rgba(220,38,38,.11);
+  --shadow-sm: 0 1px 2px rgba(15,15,35,.06), 0 1px 1px rgba(15,15,35,.04);
+  --shadow: 0 1px 2px rgba(15,15,35,.05), 0 8px 24px -6px rgba(15,15,35,.10);
+  --shadow-lg: 0 24px 60px -12px rgba(15,15,35,.28);
+  --r-sm: 7px; --r: 11px; --r-lg: 16px;
+  --ease: cubic-bezier(.2,.8,.2,1);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #0f0f13;
+    --bg-tint: radial-gradient(1200px 600px at 10% -10%, rgba(107,76,246,.18) 0%, transparent 60%), radial-gradient(900px 500px at 110% 0%, rgba(56,132,255,.10) 0%, transparent 55%);
+    --surface: rgba(30,30,38,.72); --surface-solid: #1c1c23; --surface-2: #23232c; --sunken: #15151b;
+    --line: rgba(255,255,255,.08); --line-strong: rgba(255,255,255,.15);
+    --ink: #f1f1f5; --ink-2: #c2c2cc; --muted: #8d8d99;
+    --accent: #8b6dff; --accent-2: #a68cff; --accent-ink: #ffffff; --accent-soft: rgba(139,109,255,.18);
+    --good: #34d399; --good-soft: rgba(52,211,153,.14); --warn: #fbbf24; --warn-soft: rgba(251,191,36,.14);
+    --bad: #f87171; --bad-soft: rgba(248,113,113,.14);
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px -6px rgba(0,0,0,.5);
+    --shadow-lg: 0 24px 60px -12px rgba(0,0,0,.7);
   }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #121214; --panel: #1b1b1f; --ink: #ececf0; --muted: #9a9aa6; --line: #2c2c33;
-      --accent: #ff6a43; --accent-ink: #121214; --good: #4cc27f; --bad: #ff6b5b; --bar: #26262c;
-    }
-  }
-  * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--ink);
-         font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-  main { max-width: 1040px; margin: 0 auto; padding: 32px 16px 80px; }
-  header { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
-  h1 { font-size: 28px; margin: 0; letter-spacing: -0.02em; }
-  h1 span { color: var(--accent); }
-  .sub { color: var(--muted); margin: 4px 0 24px; }
-  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
-  form.new { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; }
-  input, select { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line);
-                  border-radius: 10px; padding: 10px 12px; min-width: 0; }
-  input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
-  button { font: inherit; border: 1px solid var(--line); background: var(--panel); color: var(--ink);
-           border-radius: 10px; padding: 9px 14px; cursor: pointer; }
-  button:hover { border-color: var(--muted); }
-  button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
-  button.link { border: none; background: none; color: var(--muted); padding: 4px 6px; }
-  button.link:hover { color: var(--ink); }
-  .opts { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 12px; color: var(--muted); font-size: 14px; align-items: center; }
-  .opts label { display: flex; gap: 6px; align-items: center; }
-  .opts select, .opts input[type=number] { padding: 5px 8px; }
-  .opts input[type=number] { width: 64px; }
-  h2 { font-size: 15px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 32px 0 12px; }
-  .job { padding: 14px 18px; margin-bottom: 10px; }
-  .job-top { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
-  .job-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .status { font-size: 13px; color: var(--muted); white-space: nowrap; }
-  .status.failed { color: var(--bad); } .status.done { color: var(--good); }
-  .bar { height: 6px; background: var(--bar); border-radius: 99px; margin: 10px 0 6px; overflow: hidden; }
-  .bar > div { height: 100%; background: var(--accent); width: 0; transition: width .4s; }
-  .msg { font-size: 13px; color: var(--muted); }
-  .err { font-size: 13px; color: var(--bad); white-space: pre-wrap; margin-top: 6px; }
-  .actions { display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap; }
-  .clips { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; margin-top: 14px; }
-  .clip { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--bg); display: flex; flex-direction: column; }
-  .clip video { width: 100%; aspect-ratio: 9 / 16; background: #000; display: block; }
-  .clip .body { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 4px; flex: 1; }
-  .clip .score { font-weight: 700; font-size: 20px; color: var(--accent); line-height: 1; }
-  .clip .score small { font-size: 12px; color: var(--muted); font-weight: 400; margin-left: 4px; }
-  .clip .t { font-weight: 600; }
-  .clip .why { font-size: 13px; color: var(--muted); flex: 1; }
-  .clip a { color: var(--ink); font-size: 14px; }
-  .empty { color: var(--muted); text-align: center; padding: 28px; }
-  dialog { border: 1px solid var(--line); border-radius: 14px; background: var(--panel); color: var(--ink);
-           width: min(520px, calc(100vw - 32px)); padding: 22px; }
-  dialog::backdrop { background: rgba(0,0,0,.4); }
-  .field { display: grid; gap: 4px; margin-bottom: 14px; }
-  .field span { font-size: 13px; color: var(--muted); }
-  .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
-  @media (max-width: 640px) { form.new { grid-template-columns: 1fr; } h1 { font-size: 24px; } }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0f0f13;
+  --bg-tint: radial-gradient(1200px 600px at 10% -10%, rgba(107,76,246,.18) 0%, transparent 60%), radial-gradient(900px 500px at 110% 0%, rgba(56,132,255,.10) 0%, transparent 55%);
+  --surface: rgba(30,30,38,.72); --surface-solid: #1c1c23; --surface-2: #23232c; --sunken: #15151b;
+  --line: rgba(255,255,255,.08); --line-strong: rgba(255,255,255,.15);
+  --ink: #f1f1f5; --ink-2: #c2c2cc; --muted: #8d8d99;
+  --accent: #8b6dff; --accent-2: #a68cff; --accent-ink: #ffffff; --accent-soft: rgba(139,109,255,.18);
+  --good: #34d399; --good-soft: rgba(52,211,153,.14); --warn: #fbbf24; --warn-soft: rgba(251,191,36,.14);
+  --bad: #f87171; --bad-soft: rgba(248,113,113,.14);
+  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px -6px rgba(0,0,0,.5);
+  --shadow-lg: 0 24px 60px -12px rgba(0,0,0,.7);
+}
+
+/* ---------------------------------------------------------------- base */
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { font: 14px/1.45 var(--font); color: var(--ink); background: var(--bg-tint), var(--bg); background-attachment: fixed; min-height: 100vh; -webkit-font-smoothing: antialiased; }
+button, input, select { font: inherit; color: inherit; }
+svg.i { width: 16px; height: 16px; flex: none; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+.hidden { display: none !important; }
+
+/* ---------------------------------------------------------------- app bar */
+.appbar { position: sticky; top: 0; z-index: 20; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; padding: 10px 20px; background: var(--surface); backdrop-filter: saturate(180%) blur(20px); -webkit-backdrop-filter: saturate(180%) blur(20px); border-bottom: 1px solid var(--line); }
+.brand { display: flex; align-items: center; gap: 10px; font: 650 16px/1 var(--font-display); letter-spacing: -.01em; }
+.brand .mark { width: 28px; height: 28px; border-radius: 8px; background: linear-gradient(135deg, var(--accent), #3b82f6); display: grid; place-items: center; box-shadow: 0 4px 12px -4px var(--accent); }
+.brand .mark svg { width: 18px; height: 18px; stroke: #fff; stroke-width: 2; }
+.bar-right { display: flex; justify-content: flex-end; gap: 4px; }
+
+/* ---------------------------------------------------------------- controls */
+.seg { display: inline-flex; padding: 3px; gap: 2px; background: var(--sunken); border: 1px solid var(--line); border-radius: 10px; }
+.seg button { border: 0; background: transparent; padding: 5px 14px; border-radius: 7px; cursor: pointer; color: var(--ink-2); font-weight: 520; display: inline-flex; align-items: center; gap: 6px; transition: background .15s var(--ease), color .15s; white-space: nowrap; }
+.seg button:hover { color: var(--ink); }
+.seg button[aria-pressed="true"] { background: var(--surface-solid); color: var(--ink); box-shadow: var(--shadow-sm), 0 0 0 .5px var(--line-strong); }
+.seg.full { display: flex; } .seg.full button { flex: 1; justify-content: center; padding: 5px 8px; }
+
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 34px; padding: 0 14px; border-radius: var(--r-sm); border: 1px solid var(--line-strong); background: var(--surface-solid); color: var(--ink); cursor: pointer; font-weight: 540; box-shadow: var(--shadow-sm); transition: background .15s, border-color .15s, transform .08s; white-space: nowrap; text-decoration: none; }
+.btn:hover { background: var(--surface-2); }
+.btn:active { transform: scale(.98); }
+.btn:disabled { opacity: .5; cursor: default; transform: none; }
+.btn.primary { background: linear-gradient(180deg, var(--accent-2), var(--accent)); border-color: transparent; color: var(--accent-ink); box-shadow: 0 1px 0 rgba(255,255,255,.25) inset, 0 6px 16px -6px var(--accent); }
+.btn.primary:hover { filter: brightness(1.06); }
+.btn.big { height: 46px; font-size: 15px; border-radius: var(--r); width: 100%; }
+.btn.ghost { background: transparent; border-color: transparent; box-shadow: none; color: var(--ink-2); }
+.btn.ghost:hover { background: var(--sunken); color: var(--ink); }
+.btn.icon { width: 34px; padding: 0; }
+.btn.small { height: 28px; padding: 0 10px; font-size: 13px; }
+.btn.danger:hover { color: var(--bad); }
+
+.field { width: 100%; height: 34px; padding: 0 11px; border-radius: var(--r-sm); border: 1px solid var(--line-strong); background: var(--surface-solid); box-shadow: inset 0 1px 1px rgba(0,0,0,.03); transition: border-color .15s, box-shadow .15s; }
+.field:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+select.field { appearance: none; padding-right: 30px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 6l4 4 4-4' stroke='%23888' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 9px center; background-size: 14px; }
+
+.switch { position: relative; width: 38px; height: 22px; flex: none; }
+.switch input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; z-index: 1; }
+.switch span { position: absolute; inset: 0; border-radius: 99px; background: var(--line-strong); transition: background .2s var(--ease); }
+.switch span::after { content: ""; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: transform .2s var(--ease); }
+.switch input:checked + span { background: var(--accent); }
+.switch input:checked + span::after { transform: translateX(16px); }
+.switch input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+.switch input:disabled + span { opacity: .45; }
+
+.stepper { display: inline-flex; align-items: center; border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--surface-solid); overflow: hidden; height: 32px; }
+.stepper button { width: 32px; height: 100%; border: 0; background: transparent; cursor: pointer; font-size: 16px; color: var(--ink-2); }
+.stepper button:hover { background: var(--sunken); color: var(--ink); }
+.stepper output { min-width: 34px; text-align: center; font-variant-numeric: tabular-nums; font-weight: 600; }
+
+input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 22px; background: transparent; cursor: pointer; }
+input[type=range]::-webkit-slider-runnable-track { height: 4px; border-radius: 9px; background: linear-gradient(90deg, var(--accent) var(--p, 50%), var(--line-strong) var(--p, 50%)); }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; margin-top: -7px; border-radius: 50%; background: #fff; border: .5px solid rgba(0,0,0,.15); box-shadow: 0 1px 4px rgba(0,0,0,.3); }
+input[type=range]::-moz-range-track { height: 4px; border-radius: 9px; background: var(--line-strong); }
+input[type=range]::-moz-range-progress { height: 4px; border-radius: 9px; background: var(--accent); }
+input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: #fff; border: .5px solid rgba(0,0,0,.15); box-shadow: 0 1px 4px rgba(0,0,0,.3); }
+
+.badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 99px; font-size: 11.5px; font-weight: 600; background: var(--sunken); color: var(--ink-2); white-space: nowrap; }
+.badge.good { background: var(--good-soft); color: var(--good); }
+.badge.warn { background: var(--warn-soft); color: var(--warn); }
+.badge.bad { background: var(--bad-soft); color: var(--bad); }
+.badge.accent { background: var(--accent-soft); color: var(--accent); }
+
+/* ---------------------------------------------------------------- layout */
+main { max-width: 1180px; margin: 0 auto; padding: 28px 20px 80px; }
+.page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 18px; flex-wrap: wrap; }
+.page-head h1 { font: 680 26px/1.15 var(--font-display); letter-spacing: -.02em; margin: 0; }
+.page-head p { margin: 4px 0 0; color: var(--muted); }
+.card { background: var(--surface); backdrop-filter: saturate(160%) blur(16px); -webkit-backdrop-filter: saturate(160%) blur(16px); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--shadow); }
+.create { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; align-items: start; }
+.stack { display: grid; gap: 16px; }
+
+/* source */
+.source { padding: 18px; }
+.url-row { display: flex; gap: 10px; }
+.url-wrap { position: relative; flex: 1; }
+.url-wrap svg { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: var(--muted); }
+.url-wrap .field { height: 46px; padding-left: 38px; font-size: 15px; border-radius: var(--r); }
+.drop { margin-top: 12px; border: 1.5px dashed var(--line-strong); border-radius: var(--r); padding: 14px; display: flex; align-items: center; justify-content: center; gap: 10px; color: var(--muted); cursor: pointer; transition: border-color .15s, background .15s; text-align: center; }
+.drop:hover, .drop.over { border-color: var(--accent); background: var(--accent-soft); color: var(--ink); }
+.chip { display: inline-flex; align-items: center; gap: 8px; padding: 6px 8px 6px 12px; border-radius: 99px; background: var(--accent-soft); color: var(--ink); font-weight: 540; max-width: 100%; }
+.chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.upload-bar { height: 3px; border-radius: 9px; background: var(--sunken); margin-top: 10px; overflow: hidden; }
+.upload-bar div { height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+
+/* grouped settings (macOS inset grouped / Fluent settings card) */
+.group { padding: 4px 0; }
+.group > h3 { display: flex; align-items: center; gap: 8px; margin: 0; padding: 12px 18px 6px; font: 650 12px/1 var(--font); text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
+.row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 11px 18px; min-height: 52px; }
+.row + .row { border-top: 1px solid var(--line); }
+.row .label { display: grid; gap: 1px; min-width: 0; }
+.row .label b { font-weight: 560; }
+.row .label small { color: var(--muted); font-size: 12.5px; }
+.row.col { flex-direction: column; align-items: stretch; gap: 10px; }
+.row .ctrl { display: flex; align-items: center; gap: 8px; flex: none; }
+.row .ctrl.grow { flex: 1; justify-content: flex-end; max-width: 360px; }
+.range-row { display: flex; align-items: center; gap: 12px; }
+.range-row output { min-width: 44px; text-align: right; font-variant-numeric: tabular-nums; color: var(--ink-2); font-size: 13px; }
+
+.fonts { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 8px; }
+.font-tile { border: 1px solid var(--line-strong); border-radius: var(--r); background: var(--surface-solid); padding: 10px 8px 8px; cursor: pointer; text-align: center; transition: border-color .15s, box-shadow .15s, transform .1s; display: grid; gap: 4px; }
+.font-tile:hover { border-color: var(--accent); }
+.font-tile[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.font-tile .aa { font-size: 24px; line-height: 1.1; height: 28px; overflow: hidden; }
+.font-tile .nm { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.swatches { display: flex; gap: 7px; flex-wrap: wrap; align-items: center; }
+.swatch { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--surface-solid); box-shadow: 0 0 0 1px var(--line-strong); cursor: pointer; padding: 0; }
+.swatch[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--accent); }
+.swatch.custom { position: relative; overflow: hidden; background: conic-gradient(red, yellow, lime, cyan, blue, magenta, red); }
+.swatch.custom input { position: absolute; inset: -6px; opacity: 0; cursor: pointer; }
+
+/* preview */
+.preview-col { position: sticky; top: 74px; display: grid; gap: 14px; }
+.phone { padding: 14px; }
+.screen { position: relative; aspect-ratio: 9 / 16; width: 100%; border-radius: 22px; overflow: hidden; background: #111; container-type: size; box-shadow: inset 0 0 0 1px rgba(255,255,255,.06); }
+.screen .scene { position: absolute; inset: 0; background:
+    radial-gradient(60% 34% at 50% 34%, #e2b694 0 34%, transparent 35%),
+    radial-gradient(85% 45% at 50% 82%, #2b3a55 0 58%, transparent 59%),
+    linear-gradient(180deg, #54637d 0%, #2a3142 55%, #1d2230 100%); }
+.screen .scene::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,.05), rgba(0,0,0,.25)); }
+.screen .ui { position: absolute; right: 4%; bottom: 12%; display: grid; gap: 4cqh; opacity: .75; }
+.screen .ui i { width: 7cqw; height: 7cqw; border-radius: 50%; background: rgba(255,255,255,.85); display: block; }
+.cap { position: absolute; left: 50%; transform: translate(-50%, -50%); width: 86%; text-align: center; line-height: 1.12; color: #fff; paint-order: stroke fill; word-spacing: .05em; }
+.cap .w { display: inline-block; transition: transform .15s; }
+.cap.box .line { display: inline; padding: .08em .22em; background: rgba(0,0,0,.62); box-decoration-break: clone; -webkit-box-decoration-break: clone; border-radius: .08em; }
+.preview-meta { display: flex; justify-content: space-between; color: var(--muted); font-size: 12.5px; margin: 10px 2px 0; }
+.summary { padding: 14px; display: grid; gap: 10px; }
+.summary .line { display: flex; justify-content: space-between; gap: 10px; color: var(--ink-2); font-size: 13px; }
+.summary .line b { color: var(--ink); font-weight: 560; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* library */
+.jobs { display: grid; gap: 14px; }
+.job { padding: 16px 18px; }
+.job-head { display: flex; gap: 14px; align-items: flex-start; justify-content: space-between; }
+.job-title { font: 620 15.5px/1.3 var(--font-display); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.job-sub { color: var(--muted); font-size: 12.5px; margin-top: 3px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.steps { display: flex; gap: 6px; margin-top: 14px; }
+.step { flex: 1; display: grid; gap: 6px; font-size: 12px; color: var(--muted); }
+.step .track { height: 4px; border-radius: 9px; background: var(--sunken); overflow: hidden; }
+.step .track div { height: 100%; width: 0; background: var(--accent); transition: width .4s var(--ease); }
+.step.done { color: var(--ink-2); } .step.done .track div { width: 100%; }
+.step.active { color: var(--ink); font-weight: 560; }
+.job-msg { margin-top: 10px; color: var(--ink-2); font-size: 13px; }
+.job-err { margin-top: 10px; padding: 10px 12px; border-radius: var(--r-sm); background: var(--bad-soft); color: var(--bad); font-size: 13px; white-space: pre-wrap; }
+.job-actions { display: flex; gap: 2px; flex: none; }
+.clips { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; margin-top: 16px; }
+.clip { border-radius: var(--r); overflow: hidden; background: var(--surface-solid); border: 1px solid var(--line); display: flex; flex-direction: column; box-shadow: var(--shadow-sm); }
+.clip video { width: 100%; aspect-ratio: 9 / 16; background: #000; display: block; object-fit: cover; }
+.clip .body { padding: 10px 12px 12px; display: grid; gap: 4px; flex: 1; align-content: start; }
+.clip .top { display: flex; align-items: center; justify-content: space-between; }
+.score { font: 700 13px/1 var(--font); padding: 4px 8px; border-radius: 99px; }
+.score.s85 { background: var(--good-soft); color: var(--good); }
+.score.s70 { background: var(--accent-soft); color: var(--accent); }
+.score.s0 { background: var(--sunken); color: var(--ink-2); }
+.clip .t { font-weight: 600; line-height: 1.3; }
+.clip .why { font-size: 12.5px; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.clip .t { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.clip .acts { display: flex; gap: 6px; margin-top: 6px; }
+.empty { padding: 48px 24px; text-align: center; color: var(--muted); display: grid; gap: 10px; justify-items: center; }
+.empty svg { width: 36px; height: 36px; stroke-width: 1.4; opacity: .7; }
+
+/* models */
+.model-tools { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--line); }
+.filters { display: flex; gap: 6px; flex-wrap: wrap; }
+.filter { border: 1px solid var(--line-strong); background: var(--surface-solid); border-radius: 99px; padding: 4px 12px; cursor: pointer; font-size: 13px; color: var(--ink-2); }
+.filter[aria-pressed="true"] { background: var(--ink); color: var(--surface-solid); border-color: var(--ink); }
+.mrow { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.6fr) 90px 110px 150px; gap: 14px; align-items: center; padding: 12px 18px; border-top: 1px solid var(--line); }
+.mrow:first-of-type { border-top: 0; }
+.mrow .name { font-weight: 600; font-family: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace; font-size: 13px; overflow-wrap: anywhere; }
+.mrow .maker { color: var(--muted); font-size: 12px; }
+.mrow .notes { color: var(--ink-2); font-size: 13px; }
+.mrow .num { color: var(--ink-2); font-variant-numeric: tabular-nums; font-size: 13px; }
+.mrow .act { display: flex; justify-content: flex-end; gap: 6px; align-items: center; }
+.mini-bar { width: 100%; display: grid; gap: 4px; font-size: 11.5px; color: var(--muted); }
+.mini-bar .track { height: 4px; border-radius: 9px; background: var(--sunken); overflow: hidden; }
+.mini-bar .track div { height: 100%; background: var(--accent); width: 0; transition: width .3s; }
+.mhead { color: var(--muted); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
+.ram { display: flex; gap: 10px; align-items: center; padding: 14px 18px; color: var(--ink-2); }
+.add-model { display: flex; gap: 8px; padding: 14px 18px; border-top: 1px solid var(--line); flex-wrap: wrap; }
+.add-model .field { flex: 1; min-width: 200px; }
+
+/* dialog & toast */
+dialog { border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface-solid); color: var(--ink); width: min(540px, calc(100vw - 32px)); padding: 0; box-shadow: var(--shadow-lg); }
+dialog::backdrop { background: rgba(10,10,20,.35); backdrop-filter: blur(4px); }
+dialog header { display: flex; align-items: center; justify-content: space-between; padding: 16px 18px; border-bottom: 1px solid var(--line); }
+dialog header h2 { margin: 0; font: 650 16px/1 var(--font-display); }
+dialog .foot { display: flex; justify-content: flex-end; gap: 8px; padding: 14px 18px; border-top: 1px solid var(--line); background: var(--surface-2); border-radius: 0 0 var(--r-lg) var(--r-lg); }
+.toasts { position: fixed; bottom: 20px; right: 20px; display: grid; gap: 8px; z-index: 50; max-width: min(420px, calc(100vw - 40px)); }
+.toast { padding: 12px 14px; border-radius: var(--r); background: var(--surface-solid); border: 1px solid var(--line); box-shadow: var(--shadow-lg); display: flex; gap: 10px; align-items: flex-start; animation: rise .25s var(--ease); }
+.toast.bad { border-left: 3px solid var(--bad); } .toast.good { border-left: 3px solid var(--good); }
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } }
+
+/* responsive */
+@media (max-width: 960px) {
+  .create { grid-template-columns: 1fr; }
+  .preview-col { position: static; grid-template-columns: minmax(0, 260px) 1fr; align-items: start; }
+  .mrow { grid-template-columns: minmax(0, 1fr) auto; }
+  .mrow .notes, .mrow .num { display: none; }
+  .mhead-row { display: none !important; }
+}
+@media (max-width: 640px) {
+  .appbar { grid-template-columns: auto 1fr; padding: 10px 16px; }
+  .appbar nav { grid-column: 1 / -1; grid-row: 2; justify-self: stretch; }
+  .appbar nav .seg { display: flex; } .appbar nav .seg button { flex: 1; justify-content: center; }
+  main { padding: 20px 16px 64px; }
+  .preview-col { grid-template-columns: 1fr; }
+  .url-row { flex-direction: column; }
+  .row { flex-wrap: wrap; }
+  .row .ctrl.grow { max-width: none; width: 100%; }
+}
 </style>
 </head>
 <body>
-<main>
-  <header>
-    <h1>hook<span>cut</span></h1>
-    <button class="link" id="open-settings">Settings</button>
-  </header>
-  <p class="sub">Paste a long video. Get the best moments as vertical clips, made on your computer with open models.</p>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4"/><path d="M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3l1.8 4.7L18.5 9.5 13.8 11.3 12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></symbol>
+  <symbol id="i-film" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 4v16M17 4v16M3 9h4M17 9h4M3 15h4M17 15h4"/></symbol>
+  <symbol id="i-chip" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></symbol>
+  <symbol id="i-auto" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3v18" /><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 4v12"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/></symbol>
+  <symbol id="i-redo" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></symbol>
+  <symbol id="i-brain" viewBox="0 0 24 24"><path d="M9 4a3 3 0 0 0-3 3 3 3 0 0 0-2 5 3 3 0 0 0 2 5 3 3 0 0 0 6 1V5a3 3 0 0 0-3-1z"/><path d="M15 4a3 3 0 0 1 3 3 3 3 0 0 1 2 5 3 3 0 0 1-2 5 3 3 0 0 1-6 1"/></symbol>
+  <symbol id="i-hook" viewBox="0 0 24 24"><rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M10.5 9.2v5.6l4.4-2.8z" fill="currentColor" stroke-width="1.2"/></symbol>
+  <symbol id="i-cc" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 10.5a2 2 0 1 0 0 3M16.5 10.5a2 2 0 1 0 0 3"/></symbol>
+</svg>
 
-  <section class="panel">
-    <form class="new" id="new-job">
-      <input id="target" placeholder="https://www.youtube.com/watch?v=…  or  /path/to/video.mp4" required autocomplete="off">
-      <select id="model" title="Model that picks the clips"></select>
-      <button class="primary" type="submit">Make clips</button>
-    </form>
-    <div class="opts">
-      <label>Clips <input type="number" id="max-clips" min="1" max="20" value="5"></label>
-      <label><input type="checkbox" id="captions" checked> Captions</label>
-      <label><input type="checkbox" id="think"> Let the model think (slower, sharper)</label>
-      <span id="server-note"></span>
+<header class="appbar">
+  <div class="brand"><div class="mark"><svg class="i"><use href="#i-hook"/></svg></div>hookcut</div>
+  <nav aria-label="Sections">
+    <div class="seg" role="group">
+      <button data-view="create" aria-pressed="true"><svg class="i"><use href="#i-spark"/></svg>Create</button>
+      <button data-view="library" aria-pressed="false"><svg class="i"><use href="#i-film"/></svg>Library <span class="badge accent hidden" id="active-count"></span></button>
+      <button data-view="models" aria-pressed="false"><svg class="i"><use href="#i-chip"/></svg>Models</button>
+    </div>
+  </nav>
+  <div class="bar-right">
+    <button class="btn ghost icon" id="theme" title="Theme: follow system"><svg class="i"><use href="#i-auto"/></svg></button>
+    <button class="btn ghost icon" id="open-settings" title="Settings"><svg class="i"><use href="#i-gear"/></svg></button>
+  </div>
+</header>
+
+<main>
+  <!-- ============================================================ CREATE -->
+  <section id="view-create">
+    <div class="page-head">
+      <div><h1>Turn a long video into viral clips</h1>
+        <p>Runs entirely on your computer with open models. Nothing is uploaded anywhere.</p></div>
+    </div>
+    <div class="create">
+      <div class="stack">
+        <div class="card source">
+          <div class="url-row">
+            <label class="url-wrap"><svg class="i"><use href="#i-link"/></svg>
+              <input class="field" id="url" placeholder="Paste a YouTube, Vimeo or X video link" autocomplete="off" aria-label="Video link"></label>
+          </div>
+          <div class="drop" id="drop" tabindex="0" role="button">
+            <svg class="i"><use href="#i-upload"/></svg>
+            <span id="drop-text">…or drop a video file here, or <u>browse</u></span>
+            <input type="file" id="file" accept="video/*,.mkv" hidden>
+          </div>
+          <div class="upload-bar hidden" id="upload-bar"><div></div></div>
+        </div>
+
+        <div class="card group">
+          <h3><svg class="i"><use href="#i-brain"/></svg>AI model</h3>
+          <div class="row">
+            <div class="label"><b>Model</b><small id="model-hint">Picks the moments and writes titles</small></div>
+            <div class="ctrl grow"><select class="field" id="model" aria-label="Model"></select></div>
+          </div>
+          <div class="row">
+            <div class="label"><b>Think before answering</b><small>Slower, sharper picks. For reasoning models.</small></div>
+            <label class="switch"><input type="checkbox" id="think"><span></span></label>
+          </div>
+        </div>
+
+        <div class="card group">
+          <h3><svg class="i"><use href="#i-film"/></svg>Clips</h3>
+          <div class="row">
+            <div class="label"><b>Number of clips</b><small>Best moments first</small></div>
+            <div class="stepper"><button data-step="clips" data-d="-1" aria-label="Fewer">−</button><output id="clips-out">5</output><button data-step="clips" data-d="1" aria-label="More">+</button></div>
+          </div>
+          <div class="row">
+            <div class="label"><b>Clip length</b><small id="len-out">15 – 75 seconds</small></div>
+            <div class="seg" id="length">
+              <button data-len="10,35">Short</button><button data-len="15,75">Medium</button><button data-len="30,120">Long</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card group">
+          <h3><svg class="i"><use href="#i-cc"/></svg>Captions</h3>
+          <div class="row">
+            <div class="label"><b>Burn in captions</b><small>Word-by-word, timed to the speech</small></div>
+            <label class="switch"><input type="checkbox" id="captions"><span></span></label>
+          </div>
+          <div id="caption-opts">
+            <div class="row">
+              <div class="label"><b>Style</b></div>
+              <div class="seg" id="style"><button data-v="highlight">Highlight</button><button data-v="box">Box</button><button data-v="plain">Plain</button></div>
+            </div>
+            <div class="row col">
+              <div class="label"><b>Font</b></div>
+              <div class="fonts" id="fonts"></div>
+            </div>
+            <div class="row col">
+              <div class="row" style="padding:0;min-height:0">
+                <div class="label"><b>Size</b></div>
+                <div class="seg" id="size-presets"><button data-v="64">S</button><button data-v="84">M</button><button data-v="104">L</button><button data-v="128">XL</button></div>
+              </div>
+              <div class="range-row"><input type="range" id="size" min="40" max="170" step="2" aria-label="Font size"><output id="size-out"></output></div>
+            </div>
+            <div class="row col">
+              <div class="row" style="padding:0;min-height:0">
+                <div class="label"><b>Position</b></div>
+                <div class="seg" id="pos-presets"><button data-v="20">Top</button><button data-v="50">Middle</button><button data-v="72">Bottom</button></div>
+              </div>
+              <div class="range-row"><input type="range" id="pos" min="8" max="92" aria-label="Vertical position"><output id="pos-out"></output></div>
+            </div>
+            <div class="row">
+              <div class="label"><b>Text colour</b></div>
+              <div class="swatches" id="text-colors"></div>
+            </div>
+            <div class="row">
+              <div class="label"><b>Highlight colour</b><small>The word being spoken</small></div>
+              <div class="swatches" id="hl-colors"></div>
+            </div>
+            <div class="row">
+              <div class="label"><b>Words per line</b></div>
+              <div class="stepper"><button data-step="words" data-d="-1" aria-label="Fewer">−</button><output id="words-out">3</output><button data-step="words" data-d="1" aria-label="More">+</button></div>
+            </div>
+            <div class="row">
+              <div class="label"><b>ALL CAPS</b></div>
+              <label class="switch"><input type="checkbox" id="upper"><span></span></label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <aside class="preview-col">
+        <div class="card phone">
+          <div class="screen" id="screen">
+            <div class="scene"></div>
+            <div class="ui"><i></i><i></i><i></i></div>
+            <div class="cap" id="cap"></div>
+          </div>
+          <div class="preview-meta"><span>Live preview</span><span>1080 × 1920</span></div>
+        </div>
+        <div class="card summary">
+          <div class="line"><span>Model</span><b id="sum-model">—</b></div>
+          <div class="line"><span>Clips</span><b id="sum-clips">—</b></div>
+          <div class="line"><span>Captions</span><b id="sum-caps">—</b></div>
+          <button class="btn primary big" id="go"><svg class="i"><use href="#i-spark"/></svg>Generate clips</button>
+        </div>
+      </aside>
     </div>
   </section>
 
-  <h2>Jobs</h2>
-  <div id="jobs"><div class="empty panel">No jobs yet. Paste a link above to start.</div></div>
+  <!-- ============================================================ LIBRARY -->
+  <section id="view-library" class="hidden">
+    <div class="page-head"><div><h1>Library</h1><p>Your jobs and finished clips. Files are saved on this computer.</p></div></div>
+    <div class="jobs" id="jobs"></div>
+  </section>
+
+  <!-- ============================================================ MODELS -->
+  <section id="view-models" class="hidden">
+    <div class="page-head"><div><h1>Models</h1><p>Open models from Qwen, Gemma, Llama, Nemotron, GLM, DeepSeek, Mistral and more.</p></div></div>
+    <div class="card" id="models-card">
+      <div class="ram" id="ram"></div>
+      <div class="model-tools">
+        <div class="filters" id="families"></div>
+        <label style="display:flex;gap:8px;align-items:center;color:var(--ink-2)"><span class="switch"><input type="checkbox" id="fits-only"><span></span></span>Fits my computer</label>
+      </div>
+      <div class="mrow mhead-row"><span class="mhead">Model</span><span class="mhead">Good for</span><span class="mhead">Download</span><span class="mhead">Fit</span><span></span></div>
+      <div id="model-rows"></div>
+      <div class="add-model">
+        <input class="field" id="custom-model" placeholder="Any Ollama model, e.g. qwen3:32b or hf.co/user/model" aria-label="Model name">
+        <button class="btn" id="custom-pull"><svg class="i"><use href="#i-down"/></svg>Download</button>
+      </div>
+    </div>
+  </section>
 </main>
 
 <dialog id="settings">
   <form method="dialog" id="settings-form">
-    <h3 style="margin-top:0">Settings</h3>
-    <label class="field"><span>Model server</span>
-      <select name="llm.backend"><option value="ollama">Ollama</option><option value="openai">OpenAI-compatible (LM Studio, llama.cpp…)</option></select></label>
-    <label class="field"><span>Server address</span><input name="llm.base_url"></label>
-    <label class="field"><span>Context window (tokens)</span><input name="llm.num_ctx" type="number" min="2048" step="1024"></label>
-    <label class="field"><span>Whisper model</span>
-      <select name="whisper.model">
-        <option>tiny</option><option>base</option><option>small</option><option>medium</option>
-        <option>large-v3</option><option>large-v3-turbo</option></select></label>
-    <label class="field"><span>Clip length (seconds, min – max)</span>
-      <span style="display:flex;gap:8px"><input name="clips.min_seconds" type="number" min="5" style="flex:1"><input name="clips.max_seconds" type="number" min="10" style="flex:1"></span></label>
-    <label class="field"><span>Caption style</span>
-      <select name="render.caption_style"><option value="highlight">Highlight the spoken word</option><option value="plain">Plain</option></select></label>
-    <label class="field"><span>YouTube cookies from browser (fixes "sign in to confirm you're not a bot")</span>
-      <select name="cookies_from_browser"><option value="">None</option><option>chrome</option><option>firefox</option><option>edge</option><option>brave</option><option>safari</option></select></label>
-    <div class="row"><button value="cancel" formnovalidate>Cancel</button><button class="primary" value="save">Save</button></div>
+    <header><h2>Settings</h2><button class="btn ghost icon" value="cancel" formnovalidate aria-label="Close"><svg class="i"><use href="#i-x"/></svg></button></header>
+    <div class="group" style="padding:6px 0">
+      <div class="row"><div class="label"><b>Model server</b><small>Ollama, or any OpenAI-compatible local server</small></div>
+        <div class="ctrl grow"><select class="field" name="llm.backend"><option value="ollama">Ollama</option><option value="openai">OpenAI-compatible (LM Studio, llama.cpp, vLLM, Jan)</option></select></div></div>
+      <div class="row"><div class="label"><b>Server address</b></div><div class="ctrl grow"><input class="field" name="llm.base_url"></div></div>
+      <div class="row"><div class="label"><b>Context window</b><small>Tokens the model reads at once</small></div>
+        <div class="ctrl grow"><select class="field" name="llm.num_ctx"><option value="8192">8K (low memory)</option><option value="16384">16K</option><option value="32768">32K</option></select></div></div>
+      <div class="row"><div class="label"><b>Speech model</b><small>Larger is more accurate, slower</small></div>
+        <div class="ctrl grow"><select class="field" name="whisper.model"><option>tiny</option><option>base</option><option>small</option><option>medium</option><option>large-v3</option><option>large-v3-turbo</option></select></div></div>
+      <div class="row"><div class="label"><b>Language</b><small>Blank = detect automatically</small></div><div class="ctrl grow"><input class="field" name="whisper.language" placeholder="auto (e.g. en, es, hi)"></div></div>
+      <div class="row"><div class="label"><b>YouTube cookies</b><small>Fixes "confirm you're not a bot"</small></div>
+        <div class="ctrl grow"><select class="field" name="cookies_from_browser"><option value="">Off</option><option>chrome</option><option>edge</option><option>firefox</option><option>brave</option><option>safari</option></select></div></div>
+      <div class="row"><div class="label"><b>Video encoder</b></div>
+        <div class="ctrl grow"><select class="field" name="render.encoder"><option value="auto">Automatic (GPU when available)</option><option value="libx264">Software (x264)</option><option value="h264_videotoolbox">Apple VideoToolbox</option><option value="h264_nvenc">NVIDIA NVENC</option><option value="h264_qsv">Intel Quick Sync</option></select></div></div>
+      <div class="row"><div class="label"><b>Keep the speaker in frame</b><small>Face tracking; off = centre crop</small></div>
+        <label class="switch"><input type="checkbox" name="render.face_tracking"><span></span></label></div>
+    </div>
+    <div class="foot"><button class="btn" value="cancel" formnovalidate>Cancel</button><button class="btn primary" value="save">Save</button></div>
   </form>
 </dialog>
 
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
 <script>
-const $ = (s) => document.querySelector(s);
-const api = async (path, opts = {}) => {
-  const res = await fetch(path, { headers: { 'Content-Type': 'application/json' }, ...opts });
+'use strict';
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const icon = (name) => `<svg class="i"><use href="#i-${name}"/></svg>`;
+const store = { get(k) { try { return localStorage.getItem(k); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
+
+async function api(path, opts = {}) {
+  const res = await fetch(path, { headers: opts.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }, ...opts });
   if (!res.ok) {
     let msg = res.statusText;
-    try { msg = (await res.json()).detail || msg; } catch {}
+    try { const d = (await res.json()).detail; msg = typeof d === 'string' ? d : JSON.stringify(d); } catch {}
     throw new Error(msg);
   }
   return res.status === 204 ? null : res.json();
-};
-const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-
-let settings = null;
-let rendered = {};
-
-async function loadSettings() {
-  const data = await api('/api/settings');
-  settings = data.settings;
-  const sel = $('#model');
-  const models = data.models.includes(settings.llm.model) ? data.models : [settings.llm.model, ...data.models];
-  sel.innerHTML = models.map((m) => `<option ${m === settings.llm.model ? 'selected' : ''}>${esc(m)}</option>`).join('');
-  $('#max-clips').value = settings.clips.max_clips;
-  $('#captions').checked = settings.render.captions;
-  $('#think').checked = settings.llm.think;
-  $('#server-note').textContent = data.models.length ? '' :
-    `⚠ Can't reach the model server at ${settings.llm.base_url}. Is Ollama running?`;
-  for (const el of $('#settings-form').elements) {
-    if (!el.name) continue;
-    const [a, b] = el.name.split('.');
-    el.value = b ? settings[a][b] : settings[a];
-  }
+}
+function toast(msg, kind = 'bad') {
+  const el = document.createElement('div');
+  el.className = `toast ${kind}`;
+  el.innerHTML = `<div style="flex:1">${esc(msg)}</div><button class="btn ghost icon small" aria-label="Dismiss">${icon('x')}</button>`;
+  el.querySelector('button').onclick = () => el.remove();
+  $('#toasts').append(el);
+  setTimeout(() => el.remove(), kind === 'bad' ? 9000 : 4000);
 }
 
-$('#open-settings').onclick = () => $('#settings').showModal();
-$('#settings').addEventListener('close', async () => {
-  if ($('#settings').returnValue !== 'save') return loadSettings();
-  const patch = {};
-  for (const el of $('#settings-form').elements) {
-    if (!el.name) continue;
-    const [a, b] = el.name.split('.');
-    const v = el.type === 'number' ? Number(el.value) : el.value;
-    if (b) (patch[a] ??= {})[b] = v; else patch[a] = v;
-  }
-  try { await api('/api/settings', { method: 'PUT', body: JSON.stringify(patch) }); }
-  catch (e) { alert(e.message); }
-  loadSettings();
-});
+/* ------------------------------------------------------------ theme */
+const THEMES = ['system', 'light', 'dark'];
+function applyTheme(t) {
+  if (t === 'system') document.documentElement.removeAttribute('data-theme');
+  else document.documentElement.dataset.theme = t;
+  $('#theme').innerHTML = icon({ system: 'auto', light: 'sun', dark: 'moon' }[t]);
+  $('#theme').title = `Theme: ${t === 'system' ? 'follow system' : t}`;
+}
+let theme = store.get('hookcut-theme') || 'system';
+applyTheme(theme);
+$('#theme').onclick = () => { theme = THEMES[(THEMES.indexOf(theme) + 1) % 3]; store.set('hookcut-theme', theme); applyTheme(theme); };
 
-$('#new-job').onsubmit = async (e) => {
-  e.preventDefault();
-  try {
-    await api('/api/jobs', { method: 'POST', body: JSON.stringify({
-      target: $('#target').value, model: $('#model').value,
-      max_clips: Number($('#max-clips').value), captions: $('#captions').checked, think: $('#think').checked,
-    }) });
-    $('#target').value = '';
-    refresh();
-  } catch (err) { alert(err.message); }
+/* ------------------------------------------------------------ navigation */
+function show(view) {
+  for (const b of $$('nav [data-view]')) b.setAttribute('aria-pressed', b.dataset.view === view);
+  for (const v of ['create', 'library', 'models']) $(`#view-${v}`).classList.toggle('hidden', v !== view);
+  store.set('hookcut-view', view);
+  if (view === 'models') loadModels();
+  if (view === 'library') refreshJobs();
+}
+for (const b of $$('nav [data-view]')) b.onclick = () => show(b.dataset.view);
+
+/* ------------------------------------------------------------ settings state */
+let S = null;            // settings from the server
+let FONTS = [];
+let MODELS = null;
+let saveTimer = null;
+// Patches made in quick succession must all reach the server; merge them.
+const pending = {};
+function queueSave(section, values) {
+  pending[section] = { ...(pending[section] || {}), ...values };
+  Object.assign(S[section], values);
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => {
+    const body = { ...pending };
+    for (const k of Object.keys(pending)) delete pending[k];
+    try { S = (await api('/api/settings', { method: 'PUT', body: JSON.stringify(body) })).settings; }
+    catch (e) { toast(e.message); }
+  }, 250);
+  renderCreate();
+}
+
+const TEXT_COLORS = ['#FFFFFF', '#FFF4D6', '#111111'];
+const HL_COLORS = ['#FFE500', '#22E584', '#38BDF8', '#FF4D8D', '#FF7A1A', '#A78BFA'];
+const fontLoaded = new Set();
+function loadFont(f) {
+  if (fontLoaded.has(f.id)) return;
+  fontLoaded.add(f.id);
+  const face = new FontFace(`hc-${f.id}`, `url(/api/fonts/${f.id}.ttf)`);
+  face.load().then((ff) => { document.fonts.add(ff); }).catch(() => fontLoaded.delete(f.id));
+}
+
+function setPressed(container, value) {
+  for (const b of $$('button', container)) b.setAttribute('aria-pressed', String(b.dataset.v ?? b.dataset.len) === String(value));
+}
+function rangeFill(el) { el.style.setProperty('--p', `${((el.value - el.min) / (el.max - el.min)) * 100}%`); }
+
+function swatches(container, colors, current, onPick) {
+  const custom = !colors.includes(current.toUpperCase());
+  container.innerHTML = colors.map((c) => `<button class="swatch" style="background:${c}" data-c="${c}" aria-label="${c}" aria-pressed="${c === current.toUpperCase()}"></button>`).join('') +
+    `<label class="swatch custom" aria-pressed="${custom}" title="Custom colour"><input type="color" value="${current}"></label>`;
+  for (const b of $$('button', container)) b.onclick = () => onPick(b.dataset.c);
+  // 'change' (not 'input') so re-rendering doesn't close the colour picker mid-drag.
+  $('input', container).onchange = (e) => onPick(e.target.value.toUpperCase());
+}
+
+function renderCreate() {
+  if (!S) return;
+  const r = S.render;
+  // model select (installed models, grouped by family)
+  const sel = $('#model');
+  const installed = MODELS?.installed ?? [];
+  const names = installed.map((m) => m.name);
+  if (!names.includes(S.llm.model)) names.unshift(S.llm.model);
+  const fam = (n) => (MODELS?.catalog.find((c) => c.tag === n)?.family) || n.split(/[:\d]/)[0].replace(/[-.]$/, '');
+  const groups = {};
+  for (const n of names) (groups[fam(n)] ??= []).push(n);
+  const html = Object.entries(groups).sort().map(([g, ms]) => `<optgroup label="${esc(g)}">${ms.map((m) => `<option ${m === S.llm.model ? 'selected' : ''}>${esc(m)}</option>`).join('')}</optgroup>`).join('');
+  if (sel.dataset.html !== html) { sel.innerHTML = html; sel.dataset.html = html; }
+  sel.value = S.llm.model;
+  const known = MODELS?.catalog.find((c) => c.tag === S.llm.model);
+  const isInstalled = installed.some((m) => m.name === S.llm.model);
+  $('#model-hint').innerHTML = MODELS && !MODELS.server_ok
+    ? `<span style="color:var(--bad)">Can't reach the model server. Is Ollama running?</span>`
+    : !isInstalled && MODELS ? `<span style="color:var(--warn)">Not downloaded yet. Get it in Models.</span>`
+    : esc(known?.notes || 'Picks the moments and writes titles');
+  $('#think').checked = S.llm.think;
+
+  $('#clips-out').value = S.clips.max_clips;
+  setPressed($('#length'), `${S.clips.min_seconds},${S.clips.max_seconds}`);
+  $('#len-out').textContent = `${S.clips.min_seconds} – ${S.clips.max_seconds} seconds`;
+
+  $('#captions').checked = r.captions;
+  $('#caption-opts').style.opacity = r.captions ? 1 : .45;
+  $('#caption-opts').inert = !r.captions;
+  setPressed($('#style'), r.caption_style);
+  for (const t of $$('.font-tile')) t.setAttribute('aria-pressed', t.dataset.id === r.caption_font);
+  $('#size').value = r.caption_size; rangeFill($('#size')); $('#size-out').value = `${r.caption_size}px`;
+  setPressed($('#size-presets'), r.caption_size);
+  $('#pos').value = r.caption_y; rangeFill($('#pos')); $('#pos-out').value = `${r.caption_y}%`;
+  setPressed($('#pos-presets'), r.caption_y);
+  swatches($('#text-colors'), TEXT_COLORS, r.caption_color, (c) => queueSave('render', { caption_color: c }));
+  swatches($('#hl-colors'), HL_COLORS, r.highlight_color, (c) => queueSave('render', { highlight_color: c }));
+  $('#words-out').value = r.words_per_caption;
+  $('#upper').checked = r.uppercase;
+
+  renderPreview();
+  const f = FONTS.find((x) => x.id === r.caption_font);
+  $('#sum-model').textContent = S.llm.model + (S.llm.think ? ' · thinking' : '');
+  $('#sum-clips').textContent = `${S.clips.max_clips} × ${S.clips.min_seconds}–${S.clips.max_seconds}s`;
+  $('#sum-caps').textContent = r.captions ? `${f?.label ?? r.caption_font} · ${r.caption_size}px · ${r.caption_style}` : 'Off';
+}
+
+const SAMPLE = 'the best ideas always sound crazy at first'.split(' ');
+function renderPreview() {
+  const r = S.render, cap = $('#cap');
+  cap.classList.toggle('hidden', !r.captions);
+  if (!r.captions) return;
+  const font = FONTS.find((f) => f.id === r.caption_font);
+  if (font) loadFont(font);
+  const words = SAMPLE.slice(0, Math.max(1, r.words_per_caption)).map((w) => r.uppercase ? w.toUpperCase() : w);
+  const hl = Math.min(1, words.length - 1);
+  const box = r.caption_style === 'box';
+  const plain = r.caption_style === 'plain';
+  const inner = words.map((w, i) => {
+    const on = i === hl && !plain;
+    return `<span class="w" style="${on ? `color:${r.highlight_color};${box ? '' : 'transform:scale(1.08)'}` : ''}">${esc(w)}</span>`;
+  }).join(' ');
+  cap.className = `cap${box ? ' box' : ''}`;
+  cap.innerHTML = box ? `<span class="line">${inner}</span>` : inner;
+  // Sizes are defined against a 1920px-tall frame; cqh = 1% of preview height.
+  const px = r.caption_size / 19.2; // in cqh
+  cap.style.fontFamily = font ? `"hc-${font.id}", Impact, sans-serif` : 'sans-serif';
+  cap.style.fontWeight = font && ['poppins', 'kanit', 'barlow'].includes(font.id) ? '800' : '400';
+  cap.style.fontSize = `${px}cqh`;
+  cap.style.top = `${r.caption_y}%`;
+  cap.style.color = r.caption_color;
+  cap.style.webkitTextStroke = box ? '0' : `${px * 0.18}cqh #000`;
+  cap.style.textShadow = box ? 'none' : `0 ${px * 0.05}cqh ${px * 0.06}cqh rgba(0,0,0,.6)`;
+}
+
+/* controls */
+$('#model').onchange = (e) => queueSave('llm', { model: e.target.value });
+$('#think').onchange = (e) => queueSave('llm', { think: e.target.checked });
+$('#captions').onchange = (e) => queueSave('render', { captions: e.target.checked });
+$('#upper').onchange = (e) => queueSave('render', { uppercase: e.target.checked });
+for (const b of $$('#length button')) b.onclick = () => { const [a, z] = b.dataset.len.split(',').map(Number); queueSave('clips', { min_seconds: a, max_seconds: z }); };
+for (const b of $$('#style button')) b.onclick = () => queueSave('render', { caption_style: b.dataset.v });
+for (const b of $$('#size-presets button')) b.onclick = () => queueSave('render', { caption_size: Number(b.dataset.v) });
+for (const b of $$('#pos-presets button')) b.onclick = () => queueSave('render', { caption_y: Number(b.dataset.v) });
+$('#size').oninput = (e) => queueSave('render', { caption_size: Number(e.target.value) });
+$('#pos').oninput = (e) => queueSave('render', { caption_y: Number(e.target.value) });
+for (const b of $$('[data-step]')) b.onclick = () => {
+  const d = Number(b.dataset.d);
+  if (b.dataset.step === 'clips') queueSave('clips', { max_clips: Math.min(20, Math.max(1, S.clips.max_clips + d)) });
+  else queueSave('render', { words_per_caption: Math.min(6, Math.max(1, S.render.words_per_caption + d)) });
 };
 
+function renderFontTiles() {
+  $('#fonts').innerHTML = FONTS.map((f) => `
+    <button class="font-tile" data-id="${f.id}" title="${esc(f.vibe)}">
+      <span class="aa" style="font-family:'hc-${f.id}', sans-serif;font-weight:${['poppins', 'kanit', 'barlow'].includes(f.id) ? 800 : 400}">Aa</span>
+      <span class="nm">${esc(f.label)}</span></button>`).join('');
+  for (const t of $$('.font-tile')) t.onclick = () => queueSave('render', { caption_font: t.dataset.id });
+  FONTS.forEach(loadFont);
+}
+
+/* ------------------------------------------------------------ source: link or file */
+let uploaded = null; // {path, name}
+const drop = $('#drop'), fileInput = $('#file');
+drop.onclick = () => fileInput.click();
+drop.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); } };
+drop.ondragover = (e) => { e.preventDefault(); drop.classList.add('over'); };
+drop.ondragleave = () => drop.classList.remove('over');
+drop.ondrop = (e) => { e.preventDefault(); drop.classList.remove('over'); if (e.dataTransfer.files[0]) upload(e.dataTransfer.files[0]); };
+fileInput.onchange = () => fileInput.files[0] && upload(fileInput.files[0]);
+
+function upload(file) {
+  const bar = $('#upload-bar'), fill = $('div', bar);
+  bar.classList.remove('hidden'); fill.style.width = '0';
+  $('#drop-text').textContent = `Uploading ${file.name}…`;
+  const form = new FormData(); form.append('file', file);
+  const xhr = new XMLHttpRequest();
+  xhr.open('POST', '/api/upload');
+  xhr.upload.onprogress = (e) => { if (e.lengthComputable) fill.style.width = `${(e.loaded / e.total) * 100}%`; };
+  xhr.onload = () => {
+    bar.classList.add('hidden');
+    if (xhr.status >= 300) { resetDrop(); let m = 'Upload failed'; try { m = JSON.parse(xhr.responseText).detail; } catch {} return toast(m); }
+    uploaded = JSON.parse(xhr.responseText);
+    $('#url').value = '';
+    $('#drop-text').innerHTML = `<span class="chip"><span>${esc(uploaded.name)}</span><button class="btn ghost icon small" id="clear-file" aria-label="Remove file">${icon('x')}</button></span>`;
+    $('#clear-file').onclick = (e) => { e.stopPropagation(); uploaded = null; resetDrop(); };
+  };
+  xhr.onerror = () => { bar.classList.add('hidden'); resetDrop(); toast('Upload failed.'); };
+  xhr.send(form);
+}
+function resetDrop() { $('#drop-text').innerHTML = '…or drop a video file here, or <u>browse</u>'; fileInput.value = ''; }
+$('#url').oninput = () => { if ($('#url').value && uploaded) { uploaded = null; resetDrop(); } };
+
+$('#go').onclick = async () => {
+  const target = uploaded?.path || $('#url').value.trim();
+  if (!target) { $('#url').focus(); return toast('Paste a video link or drop a file first.'); }
+  const installed = (MODELS?.installed ?? []).some((m) => m.name === S.llm.model);
+  if (MODELS?.server_ok && !installed && S.llm.backend === 'ollama') {
+    return toast(`${S.llm.model} isn't downloaded yet. Get it from the Models tab, or pick another model.`);
+  }
+  $('#go').disabled = true;
+  try {
+    clearTimeout(saveTimer);
+    if (Object.keys(pending).length) { const body = { ...pending }; for (const k of Object.keys(pending)) delete pending[k]; await api('/api/settings', { method: 'PUT', body: JSON.stringify(body) }); }
+    await api('/api/jobs', { method: 'POST', body: JSON.stringify({ target }) });
+    $('#url').value = ''; uploaded = null; resetDrop();
+    toast('Started. Follow progress in the Library.', 'good');
+    show('library');
+  } catch (e) { toast(e.message); }
+  finally { $('#go').disabled = false; }
+};
+
+/* ------------------------------------------------------------ library */
+const STEPS = [['download', 'Download'], ['transcribe', 'Transcribe'], ['highlights', 'Find moments'], ['render', 'Render']];
+let rendered = {};
+function scoreClass(s) { return s >= 85 ? 's85' : s >= 70 ? 's70' : 's0'; }
 function jobHTML(j) {
-  const pct = Math.round(j.progress * 100);
   const active = j.status === 'running' || j.status === 'queued';
-  const label = { queued: 'Waiting', running: `${pct}%`, done: 'Done', failed: 'Failed', cancelled: 'Cancelled' }[j.status];
+  const idx = STEPS.findIndex(([k]) => k === j.stage);
+  const bounds = { download: [0, .10], transcribe: [.10, .35], highlights: [.35, .70], render: [.70, 1] };
+  const steps = active || j.status === 'failed' ? `<div class="steps">${STEPS.map(([k, label], i) => {
+    const [a, b] = bounds[k];
+    const frac = i < idx ? 1 : i === idx ? Math.max(0, Math.min(1, (j.progress - a) / (b - a))) : 0;
+    return `<div class="step ${i < idx ? 'done' : i === idx ? 'active' : ''}"><div class="track"><div style="width:${frac * 100}%"></div></div>${label}</div>`;
+  }).join('')}</div>` : '';
+  const pill = { queued: '<span class="badge">Waiting</span>', running: `<span class="badge accent">${Math.round(j.progress * 100)}%</span>`, done: `<span class="badge good">${icon('check')}Done</span>`, failed: '<span class="badge bad">Failed</span>', cancelled: '<span class="badge">Cancelled</span>' }[j.status];
+  const when = new Date(j.created * 1000).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
   const clips = j.clips.map((c) => `
     <div class="clip">
       <video src="/api/jobs/${j.id}/clips/${c.index}" controls preload="metadata" playsinline></video>
       <div class="body">
-        <div class="score">${c.highlight.score}<small>/100 · ${Math.round(c.highlight.end - c.highlight.start)}s</small></div>
+        <div class="top"><span class="score ${scoreClass(c.highlight.score)}">${c.highlight.score}</span><span class="badge">${Math.round(c.highlight.end - c.highlight.start)}s</span></div>
         <div class="t">${esc(c.highlight.title)}</div>
-        <div class="why">${esc(c.highlight.reason)}</div>
-        <a href="/api/jobs/${j.id}/clips/${c.index}?download=true">Download</a>
+        <div class="why" title="${esc(c.highlight.reason)}">${esc(c.highlight.reason)}</div>
+        <div class="acts"><a class="btn small" href="/api/jobs/${j.id}/clips/${c.index}?download=true">${icon('down')}Download</a></div>
       </div>
     </div>`).join('');
   return `
-    <div class="job panel" id="job-${j.id}">
-      <div class="job-top">
-        <div class="job-title" title="${esc(j.target)}">${esc(j.title || j.target)}</div>
-        <div class="status ${j.status}">${label}</div>
+    <article class="card job" id="job-${j.id}">
+      <div class="job-head">
+        <div style="min-width:0">
+          <div class="job-title" title="${esc(j.target)}">${esc(j.title || j.target)}</div>
+          <div class="job-sub">${pill}<span>${esc(j.model)}</span><span>·</span><span>${esc(when)}</span>${j.clips.length ? `<span>·</span><span>${j.clips.length} clips</span>` : ''}</div>
+        </div>
+        <div class="job-actions">
+          ${active ? `<button class="btn ghost small" data-cancel="${j.id}">${icon('stop')}Cancel</button>` : ''}
+          ${j.clips.length ? `<button class="btn ghost icon" data-open="${j.id}" title="Open folder">${icon('folder')}</button>` : ''}
+          ${!active ? `<button class="btn ghost icon" data-retry="${esc(j.target)}" title="Make clips again with current settings">${icon('redo')}</button>
+                       <button class="btn ghost icon danger" data-delete="${j.id}" title="Delete">${icon('trash')}</button>` : ''}
+        </div>
       </div>
-      ${active ? `<div class="bar"><div style="width:${pct}%"></div></div>` : ''}
-      <div class="msg">${esc(j.message)}</div>
-      ${j.error ? `<div class="err">${esc(j.error)}</div>` : ''}
-      <div class="actions">
-        ${active ? `<button class="link" data-cancel="${j.id}">Cancel</button>` : ''}
-        ${j.clips.length ? `<button class="link" data-open="${j.id}">Open folder</button>` : ''}
-        ${!active ? `<button class="link" data-retry="${esc(j.target)}">Run again</button>
-                     <button class="link" data-delete="${j.id}">Delete</button>` : ''}
-      </div>
+      ${steps}
+      ${active || !j.clips.length ? `<div class="job-msg">${esc(j.message)}</div>` : ''}
+      ${j.error ? `<div class="job-err">${esc(j.error)}</div>` : ''}
       ${clips ? `<div class="clips">${clips}</div>` : ''}
-    </div>`;
+    </article>`;
 }
-
-async function refresh() {
+async function refreshJobs() {
   let jobs;
   try { jobs = await api('/api/jobs'); } catch { return; }
+  const activeN = jobs.filter((j) => j.status === 'running' || j.status === 'queued').length;
+  $('#active-count').textContent = activeN; $('#active-count').classList.toggle('hidden', !activeN);
   const box = $('#jobs');
-  if (!jobs.length) { box.innerHTML = '<div class="empty panel">No jobs yet. Paste a link above to start.</div>'; rendered = {}; return; }
-  // Re-render only jobs whose state changed, so playing videos aren't interrupted.
-  const next = {};
-  const frag = [];
+  if (!jobs.length) {
+    box.innerHTML = `<div class="card empty">${icon('film')}<div><b>No clips yet</b></div><div>Paste a link on the Create tab to make your first clips.</div><button class="btn primary" data-goto="create">Create clips</button></div>`;
+    rendered = {}; return;
+  }
+  const next = {}, nodes = [];
   for (const j of jobs) {
-    const key = JSON.stringify([j.status, j.progress, j.message, j.error, j.clips.length, j.title]);
+    const key = JSON.stringify([j.status, j.stage, Math.round(j.progress * 200), j.message, j.error, j.clips.length, j.title]);
     next[j.id] = key;
     const existing = document.getElementById(`job-${j.id}`);
-    if (existing && rendered[j.id] === key) { frag.push(existing); continue; }
+    if (existing && rendered[j.id] === key) { nodes.push(existing); continue; }
     const tmp = document.createElement('div'); tmp.innerHTML = jobHTML(j);
-    frag.push(tmp.firstElementChild);
+    // Keep already-loaded video players to avoid restarting playback.
+    if (existing) for (const v of $$('video', existing)) { const n = $(`video[src="${v.getAttribute('src')}"]`, tmp); if (n) n.replaceWith(v); }
+    nodes.push(tmp.firstElementChild);
   }
-  box.replaceChildren(...frag);
+  box.replaceChildren(...nodes);
   rendered = next;
 }
-
 $('#jobs').addEventListener('click', async (e) => {
   const t = e.target.closest('button'); if (!t) return;
   try {
+    if (t.dataset.goto) return show(t.dataset.goto);
     if (t.dataset.cancel) await api(`/api/jobs/${t.dataset.cancel}/cancel`, { method: 'POST' });
     if (t.dataset.open) await api(`/api/jobs/${t.dataset.open}/open`, { method: 'POST' });
-    if (t.dataset.retry) { $('#target').value = t.dataset.retry; $('#target').focus(); }
-    if (t.dataset.delete && confirm('Delete this job and its clips?')) await api(`/api/jobs/${t.dataset.delete}`, { method: 'DELETE' });
-  } catch (err) { alert(err.message); }
-  refresh();
+    if (t.dataset.retry) { $('#url').value = t.dataset.retry.startsWith('http') ? t.dataset.retry : ''; show('create'); if (!t.dataset.retry.startsWith('http')) { uploaded = { path: t.dataset.retry, name: t.dataset.retry.split(/[\\/]/).pop() }; $('#drop-text').innerHTML = `<span class="chip"><span>${esc(uploaded.name)}</span></span>`; } toast('Adjust settings, then press Generate clips.', 'good'); }
+    if (t.dataset.delete && confirm('Delete this job and its clips? This cannot be undone.')) await api(`/api/jobs/${t.dataset.delete}`, { method: 'DELETE' });
+  } catch (err) { toast(err.message); }
+  refreshJobs();
 });
 
-loadSettings().catch((e) => { $('#server-note').textContent = e.message; });
-refresh();
-setInterval(refresh, 1500);
+/* ------------------------------------------------------------ models */
+let familyFilter = store.get('hookcut-family') || 'All';
+let fitsOnly = store.get('hookcut-fits') === '1';
+async function loadModels() {
+  try { MODELS = await api('/api/models'); } catch (e) { return toast(e.message); }
+  renderModels(); renderCreate();
+}
+function fitBadge(f) {
+  return { good: '<span class="badge good">Runs well</span>', tight: '<span class="badge warn">Tight</span>', 'too-big': '<span class="badge bad">Too big</span>', unknown: '<span class="badge">—</span>' }[f];
+}
+function actionHTML(tag, installed) {
+  const p = MODELS.pulls[tag];
+  if (p && !p.done) return `<div class="mini-bar"><div class="track"><div style="width:${(p.progress || 0) * 100}%"></div></div>${esc(p.status)} ${p.progress ? Math.round(p.progress * 100) + '%' : ''}</div>`;
+  if (installed) return `${S.llm.model === tag ? '<span class="badge accent">In use</span>' : `<button class="btn small" data-use="${esc(tag)}">Use</button>`}<button class="btn ghost icon small danger" data-rm="${esc(tag)}" title="Remove">${icon('trash')}</button>`;
+  return `<button class="btn small" data-pull="${esc(tag)}">${icon('down')}Get</button>`;
+}
+function renderModels() {
+  if (!MODELS) return;
+  const ram = MODELS.ram_gb;
+  $('#ram').innerHTML = MODELS.backend !== 'ollama'
+    ? `${icon('chip')}<span>Using an OpenAI-compatible server. Load models in that app; the ones it serves appear in the model picker.</span>`
+    : MODELS.server_ok
+      ? `${icon('chip')}<span>This computer has <b>${ram || '?'} GB</b> of memory. <span class="badge good">Runs well</span> models leave room for everything else.</span>`
+      : `${icon('chip')}<span style="color:var(--bad)">Ollama isn't running. Start the Ollama app (or run <code>ollama serve</code>) to download models.</span>`;
+  const families = ['All', ...new Set(MODELS.catalog.map((m) => m.family))];
+  $('#families').innerHTML = families.map((f) => `<button class="filter" data-f="${esc(f)}" aria-pressed="${f === familyFilter}">${esc(f)}</button>`).join('');
+  for (const b of $$('#families .filter')) b.onclick = () => { familyFilter = b.dataset.f; store.set('hookcut-family', familyFilter); renderModels(); };
+  $('#fits-only').checked = fitsOnly;
+
+  const catalogTags = new Set(MODELS.catalog.map((m) => m.tag));
+  const extras = MODELS.installed.filter((m) => !catalogTags.has(m.name)).map((m) => ({ tag: m.name, family: 'Installed', maker: 'Your model', notes: 'Installed on this computer', size_gb: m.size_gb, needs_gb: null, installed: true, fit: 'unknown', reasoning: m.reasoning }));
+  const rows = [...MODELS.catalog, ...extras]
+    .filter((m) => familyFilter === 'All' || m.family === familyFilter)
+    .filter((m) => !fitsOnly || m.fit === 'good' || m.installed);
+  $('#model-rows').innerHTML = rows.map((m) => `
+    <div class="mrow">
+      <div><div class="name">${esc(m.tag)}</div><div class="maker">${esc(m.maker)} · ${esc(m.family)} ${m.recommended ? '<span class="badge accent">Recommended</span>' : ''} ${m.reasoning ? '<span class="badge" title="Supports thinking">reasoning</span>' : ''}</div></div>
+      <div class="notes">${esc(m.notes)}</div>
+      <div class="num">${m.size_gb != null ? m.size_gb + ' GB' : '—'}</div>
+      <div>${m.installed ? '<span class="badge good">' + icon('check') + 'Installed</span>' : fitBadge(m.fit)}</div>
+      <div class="act">${actionHTML(m.tag, m.installed)}</div>
+    </div>`).join('') || '<div class="empty">No models match these filters.</div>';
+}
+$('#fits-only').onchange = (e) => { fitsOnly = e.target.checked; store.set('hookcut-fits', fitsOnly ? '1' : '0'); renderModels(); };
+async function pull(name) {
+  try { await api('/api/models/pull', { method: 'POST', body: JSON.stringify({ name }) }); toast(`Downloading ${name}…`, 'good'); }
+  catch (e) { return toast(e.message); }
+  loadModels();
+}
+$('#model-rows').addEventListener('click', async (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.pull) pull(b.dataset.pull);
+  if (b.dataset.use) { queueSave('llm', { model: b.dataset.use }); renderModels(); toast(`Now using ${b.dataset.use}.`, 'good'); }
+  if (b.dataset.rm && confirm(`Remove ${b.dataset.rm} from this computer? You can download it again later.`)) {
+    try { await api(`/api/models/${encodeURIComponent(b.dataset.rm)}`, { method: 'DELETE' }); } catch (err) { toast(err.message); }
+    loadModels();
+  }
+});
+$('#custom-pull').onclick = () => { const n = $('#custom-model').value.trim(); if (n) { pull(n); $('#custom-model').value = ''; } };
+$('#custom-model').onkeydown = (e) => { if (e.key === 'Enter') $('#custom-pull').click(); };
+
+/* ------------------------------------------------------------ settings dialog */
+$('#open-settings').onclick = () => {
+  for (const el of $('#settings-form').elements) {
+    if (!el.name) continue;
+    const [a, b] = el.name.split('.');
+    const v = b ? S[a][b] : S[a];
+    if (el.type === 'checkbox') el.checked = !!v; else el.value = v;
+  }
+  $('#settings').showModal();
+};
+$('#settings').addEventListener('close', async () => {
+  if ($('#settings').returnValue !== 'save') return;
+  const patch = {};
+  for (const el of $('#settings-form').elements) {
+    if (!el.name) continue;
+    const [a, b] = el.name.split('.');
+    const v = el.type === 'checkbox' ? el.checked : el.name === 'llm.num_ctx' ? Number(el.value) : el.value;
+    if (b) (patch[a] ??= {})[b] = v; else patch[a] = v;
+  }
+  try { S = (await api('/api/settings', { method: 'PUT', body: JSON.stringify(patch) })).settings; toast('Settings saved.', 'good'); }
+  catch (e) { toast(e.message); }
+  loadModels();
+});
+
+/* ------------------------------------------------------------ boot */
+(async () => {
+  try {
+    const [settings, fonts] = await Promise.all([api('/api/settings'), api('/api/fonts')]);
+    S = settings.settings; FONTS = fonts;
+    renderFontTiles(); renderCreate();
+  } catch (e) { toast(`Could not load settings: ${e.message}`); }
+  loadModels();
+  show(store.get('hookcut-view') || 'create');
+  setInterval(() => {
+    refreshJobs();
+    const downloading = MODELS && Object.values(MODELS.pulls).some((p) => !p.done);
+    if (downloading) loadModels();
+  }, 1500);
+  // Pick up models installed outside hookcut (e.g. `ollama pull` in a terminal).
+  setInterval(() => { if (!$('#view-models').classList.contains('hidden') || !MODELS?.server_ok) loadModels(); }, 10000);
+})();
 </script>
 </body>
 </html>

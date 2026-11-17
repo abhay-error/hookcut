@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
 from .. import ffmpeg
@@ -10,6 +11,7 @@ from ..models import Shot
 from .reframe import crop_width
 
 CAPTIONS_FILE = "captions.ass"
+FONTS_DIR = "fonts"
 
 
 def build_filter(
@@ -41,7 +43,7 @@ def build_filter(
     joined = "".join(labels) + f"concat=n={len(shots)}:v=1:a=0"
     if captions:
         parts.append(f"{joined}[vj]")
-        parts.append(f"[vj]ass={CAPTIONS_FILE},format=yuv420p[vout]")
+        parts.append(f"[vj]ass={CAPTIONS_FILE}:fontsdir={FONTS_DIR},format=yuv420p[vout]")
     else:
         parts.append(f"{joined},format=yuv420p[vout]")
     parts.append(f"[0:a]loudnorm=I={settings.loudness_lufs}:TP=-1.5:LRA=11,aresample=48000[aout]")
@@ -58,8 +60,11 @@ def render_clip(
     out_file: Path,
     settings: RenderSettings,
     ass_text: str | None,
+    font_file: Path | None = None,
 ) -> Path:
-    workdir = out_file.parent
+    # Scratch folder for the subtitle file, font and partial output; removed
+    # afterwards so the clips folder holds only finished videos.
+    workdir = out_file.parent / f".render-{out_file.stem}"
     workdir.mkdir(parents=True, exist_ok=True)
     captions = bool(ass_text) and settings.captions
     if captions:
@@ -72,10 +77,15 @@ def render_clip(
         # Captions are referenced by a relative name, with ffmpeg run from the
         # clip folder, which avoids Windows drive-letter escaping in filters.
         (workdir / CAPTIONS_FILE).write_text(ass_text, encoding="utf-8")
+        # The font travels with the clip so libass finds it on every OS.
+        fonts = workdir / FONTS_DIR
+        fonts.mkdir(exist_ok=True)
+        if font_file is not None:
+            shutil.copy2(font_file, fonts / font_file.name)
 
     graph = build_filter(shots, src_w, src_h, settings, captions=captions)
     encoder = ffmpeg.pick_encoder(settings.encoder)
-    tmp = out_file.with_name(out_file.stem + ".tmp.mp4")
+    tmp = workdir / "out.mp4"
     ffmpeg.run(
         [
             "-ss", f"{start:.3f}", "-t", f"{end - start:.3f}", "-i", str(source.resolve()),
@@ -89,4 +99,5 @@ def render_clip(
         cwd=workdir,
     )
     tmp.replace(out_file)
+    shutil.rmtree(workdir, ignore_errors=True)
     return out_file

@@ -1,21 +1,28 @@
 """Burned-in captions as an ASS subtitle file.
 
 Words are grouped into short lines (a few words, broken at pauses and sentence
-ends). In the "highlight" style the word being spoken is coloured and slightly
-enlarged, the look viewers expect from short-form video.
+ends) and placed at an exact point on the frame. Styles:
+
+* ``highlight``: the word being spoken changes colour and pops slightly.
+* ``box``: white text on a translucent dark pill, the spoken word highlighted.
+* ``plain``: the whole line, no animation.
 """
 
 from __future__ import annotations
 
+from ..config import RenderSettings
 from ..models import Word
 
-#: ASS colours are &HAABBGGRR.
-WHITE = "&H00FFFFFF"
-BLACK = "&H00000000"
-HIGHLIGHT = "&H0000E5FF"  # warm yellow
 BREAK_GAP_S = 0.6
 #: Bridge tiny gaps between lines so captions don't flicker.
 HOLD_S = 0.35
+
+
+def ass_color(hex_rgb: str, alpha: int = 0) -> str:
+    """'#RRGGBB' -> ASS '&HAABBGGRR' (alpha 0 = opaque, 255 = invisible)."""
+    h = hex_rgb.lstrip("#")
+    r, g, b = h[0:2], h[2:4], h[4:6]
+    return f"&H{alpha:02X}{b}{g}{r}".upper()
 
 
 def ass_time(seconds: float) -> str:
@@ -54,19 +61,18 @@ def group(words: list[Word], per_line: int) -> list[list[Word]]:
     return lines
 
 
-def build_ass(
-    words: list[Word],
-    *,
-    width: int = 1080,
-    height: int = 1920,
-    per_line: int = 3,
-    style: str = "highlight",
-    font: str = "Arial",
-    uppercase: bool = True,
-) -> str:
-    size = round(height * 0.045)
-    outline = max(2, round(size * 0.08))
-    margin_v = round(height * 0.24)
+def build_ass(words: list[Word], settings: RenderSettings, family: str, bold: bool = False) -> str:
+    width, height = settings.width, settings.height
+    size = round(settings.caption_size * height / 1920)
+    box = settings.caption_style == "box"
+    outline = max(2, round(size * (0.22 if box else 0.09)))
+    shadow = 0 if box else max(1, round(size * 0.04))
+    x, y = width // 2, round(height * settings.caption_y / 100)
+    margin = round(width * 0.07)
+    text_color = ass_color(settings.caption_color)
+    outline_color = ass_color("#000000", 0x60 if box else 0)
+    highlight = ass_color(settings.highlight_color)
+
     header = f"""[Script Info]
 ScriptType: v4.00+
 PlayResX: {width}
@@ -78,34 +84,37 @@ ScaledBorderAndShadow: yes
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, \
 Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, \
 Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,{font},{size},{WHITE},{WHITE},{BLACK},&H80000000,-1,0,0,0,100,100,0,0,1,\
-{outline},{max(1, outline // 2)},2,{round(width * 0.08)},{round(width * 0.08)},{margin_v},1
+Style: Default,{family},{size},{text_color},{text_color},{outline_color},&H80000000,\
+{-1 if bold else 0},0,0,0,100,100,0,0,{3 if box else 1},{outline},{shadow},5,\
+{margin},{margin},0,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 """
+    place = f"{{\\an5\\pos({x},{y})}}"
     events: list[str] = []
-    lines = group(words, per_line)
+    lines = group(words, settings.words_per_caption)
     for n, line in enumerate(lines):
-        texts = [escape(w.text.upper() if uppercase else w.text) for w in line]
+        texts = [escape(w.text.upper() if settings.uppercase else w.text) for w in line]
         line_end = line[-1].end
         if n + 1 < len(lines) and lines[n + 1][0].start - line_end < HOLD_S:
             line_end = lines[n + 1][0].start
 
-        if style == "plain":
-            events.append(_event(line[0].start, line_end, " ".join(texts)))
+        if settings.caption_style == "plain":
+            events.append(_event(line[0].start, line_end, place + " ".join(texts)))
             continue
 
+        pop = "" if box else "\\fscx108\\fscy108"
         for i, word in enumerate(line):
             w_start = line[0].start if i == 0 else word.start
             w_end = line[i + 1].start if i + 1 < len(line) else line_end
             if w_end <= w_start:
                 continue
             parts = [
-                f"{{\\c{HIGHLIGHT}&\\fscx110\\fscy110}}{t}{{\\r}}" if j == i else t
+                f"{{\\c{highlight}&{pop}}}{t}{{\\r}}" if j == i else t
                 for j, t in enumerate(texts)
             ]
-            events.append(_event(w_start, w_end, " ".join(parts)))
+            events.append(_event(w_start, w_end, place + " ".join(parts)))
     return header + "\n".join(events) + "\n"
 
 

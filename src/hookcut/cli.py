@@ -11,7 +11,7 @@ from rich.console import Console
 from rich.progress import BarColumn, Progress, TextColumn
 from rich.table import Table
 
-from . import __version__, config, ffmpeg, llm, pipeline
+from . import __version__, catalog, config, ffmpeg, fonts, llm, pipeline
 from .stages import transcribe
 
 app = typer.Typer(add_completion=False, help="Turn long videos into short vertical clips, locally.")
@@ -27,6 +27,11 @@ def clip(
     no_captions: bool = typer.Option(False, "--no-captions", help="Skip burned-in captions."),
     centre: bool = typer.Option(False, "--centre", help="Centre-crop; skip face tracking."),
     whisper: str = typer.Option("", "--whisper", help="Whisper model, e.g. small, large-v3."),
+    font: str = typer.Option("", "--font", help="Caption font id (see `hookcut fonts`)."),
+    size: int = typer.Option(0, "--size", help="Caption size in px on a 1920px frame (32-200)."),
+    position: str = typer.Option("", "--position",
+                                 help="Caption position: top, middle, bottom, or 5-95 (%)."),
+    style: str = typer.Option("", "--style", help="Caption style: highlight, box, plain."),
     verbose: bool = typer.Option(False, "--verbose", "-v"),
 ) -> None:
     """Find the best moments in a video and render them as vertical clips."""
@@ -45,6 +50,20 @@ def clip(
         settings.render.face_tracking = False
     if whisper:
         settings.whisper.model = whisper
+    try:
+        if font:
+            settings.render.caption_font = fonts.get(font).id
+        if size:
+            settings.render.caption_size = size
+        if position:
+            named = {"top": 20, "middle": 50, "bottom": 72}
+            settings.render.caption_y = named.get(position.lower()) or int(position)
+        if style:
+            settings.render.caption_style = style
+        settings = config.Settings.model_validate(settings.model_dump())
+    except (fonts.FontError, ValueError) as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(2) from None
 
     job = pipeline.new_job(target, settings)
     columns = (TextColumn("{task.description}"), BarColumn(),
@@ -147,6 +166,37 @@ def doctor() -> None:
             console.print(f"  - {p}")
         raise typer.Exit(1)
     console.print("\n[green]Ready to clip.[/green]")
+
+
+@app.command()
+def models() -> None:
+    """Open models that run locally, and whether they fit this computer."""
+    settings = config.load()
+    installed = {m["name"] for m in llm.installed_models(settings.llm)}
+    ram = catalog.total_ram_gb()
+    table = Table(title=f"This computer: {ram:.0f} GB memory", title_justify="left")
+    for col in ("Model", "Family", "Size", "Fit", "Good for"):
+        table.add_column(col)
+    style = {"good": "[green]runs well[/green]", "tight": "[yellow]tight[/yellow]",
+             "too-big": "[red]too big[/red]", "unknown": "?"}
+    for m in catalog.CATALOG:
+        fit = "[cyan]installed[/cyan]" if m.tag in installed else style[catalog.fit(m, ram)]
+        name = f"{m.tag} *" if m.recommended else m.tag
+        table.add_row(name, m.family, f"{m.size_gb:g} GB", fit, m.notes)
+    console.print(table)
+    console.print("Get one with [bold]ollama pull <model>[/bold], then "
+                  "[bold]hookcut config --set llm.model=<model>[/bold].  * = recommended")
+
+
+@app.command("fonts")
+def list_fonts() -> None:
+    """Caption fonts you can use with --font."""
+    table = Table()
+    for col in ("Id", "Font", "Feel"):
+        table.add_column(col)
+    for f in fonts.FONTS.values():
+        table.add_row(f.id, f.label, f.vibe)
+    console.print(table)
 
 
 @app.command()
